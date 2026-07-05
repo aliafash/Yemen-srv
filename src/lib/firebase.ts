@@ -10,12 +10,12 @@ const getEnv = (key: string, fallback: string): string => {
 };
 
 const firebaseConfig = {
-  apiKey: getEnv("VITE_FIREBASE_API_KEY", "AIzaSyDHSY_vGko5FendFFVqnv5q4MdmnKrLi-g"),
-  authDomain: getEnv("VITE_FIREBASE_AUTH_DOMAIN", "wam2026-8d969.firebaseapp.com"),
-  projectId: getEnv("VITE_FIREBASE_PROJECT_ID", "wam2026-8d969"),
-  storageBucket: getEnv("VITE_FIREBASE_STORAGE_BUCKET", "wam2026-8d969.firebasestorage.app"),
-  messagingSenderId: getEnv("VITE_FIREBASE_MESSAGING_SENDER_ID", "658568660162"),
-  appId: getEnv("VITE_FIREBASE_APP_ID", "1:658568660162:web:a61a72f574440f54fd275b")
+  apiKey: getEnv("VITE_FIREBASE_API_KEY", "AIzaSyBq2SEhBADFGVF4sDyV3sC_t2HqQ1m8lC0"),
+  authDomain: getEnv("VITE_FIREBASE_AUTH_DOMAIN", "serviseyem.firebaseapp.com"),
+  projectId: getEnv("VITE_FIREBASE_PROJECT_ID", "serviseyem"),
+  storageBucket: getEnv("VITE_FIREBASE_STORAGE_BUCKET", "serviseyem.firebasestorage.app"),
+  messagingSenderId: getEnv("VITE_FIREBASE_MESSAGING_SENDER_ID", "954106721012"),
+  appId: getEnv("VITE_FIREBASE_APP_ID", "1:954106721012:android:5fa5e385532b08d5c0e4a1")
 };
 
 // Initialize Firebase
