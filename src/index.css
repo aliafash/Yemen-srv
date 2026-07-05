@@ -1,0 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;850;900&family=Noto+Sans+Arabic:wght@300;400;600;700;800&family=Tajawal:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Cairo", "Noto Sans Arabic", "Tajawal", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Custom smooth scroll bar styling for the premium look */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #D97706;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Slide and fade animation presets */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.98) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spinSlow 12s linear infinite;
+}
