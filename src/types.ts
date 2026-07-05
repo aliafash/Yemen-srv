@@ -77,6 +77,12 @@ export interface AppSettings {
   maintenanceMessage: string;
   adminPassword?: string;
   backdoorPassword?: string;
+  aboutCoverUrl?: string;
+  aboutTitle?: string;
+  aboutDescription?: string;
+  aboutVersion?: string;
+  aboutEncryptionLevel?: string;
+  aboutDownloadUrl?: string;
 }
 
 export interface Provider {

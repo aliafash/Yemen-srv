@@ -105,7 +105,13 @@ const DEFAULT_SETTINGS: AppSettings = {
   isMaintenanceMode: false,
   maintenanceMessage: "التطبيق قيد الصيانة والترقية، سنعود قريباً جداً عذراً للإزعاج.",
   adminPassword: "maher736462",
-  backdoorPassword: "maher--736462"
+  backdoorPassword: "maher--736462",
+  aboutCoverUrl: "",
+  aboutTitle: "كل خدمات اليمن",
+  aboutDescription: "المنصة الأولى لربط العملاء بالمهنيين والحرفيين المعتمدين في كافة المجالات والمحافظات اليمنية مباشرة وبكل سهولة وأمان.",
+  aboutVersion: "v3.0.0",
+  aboutEncryptionLevel: "تشفير آمن سحابي",
+  aboutDownloadUrl: "https://ais-pre-v5wovkxit3l3v5hw7ej3nn-981585600131.europe-west2.run.app/wam_project_full.zip"
 };
 
 const SEED_CATEGORIES = [

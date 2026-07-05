@@ -34,7 +34,8 @@ import {
   CheckCircle2,
   Clock,
   User as UserIcon,
-  Phone
+  Phone,
+  Info
 } from "lucide-react";
 
 // Modular Components
@@ -43,6 +44,7 @@ import MapTab from "./components/MapTab";
 import JoinTab from "./components/JoinTab";
 import BookingTab from "./components/BookingTab";
 import ChatTab from "./components/ChatTab";
+import AboutTab from "./components/AboutTab";
 import SmartAssistant from "./components/SmartAssistant";
 import BackdoorDialog from "./components/BackdoorDialog";
 import NotificationCenter from "./components/NotificationCenter";
@@ -63,6 +65,16 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<"home" | "map" | "join" | "booking" | "chat" | "admin">("home");
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const [bookingProvider, setBookingProvider] = useState<Provider | null>(null);
+
+  // Star Rating States
+  const [userRating, setUserRating] = useState<number>(0);
+  const [ratingSubmitted, setRatingSubmitted] = useState<boolean>(false);
+
+  // Reset rating state when selected provider changes
+  useEffect(() => {
+    setUserRating(0);
+    setRatingSubmitted(false);
+  }, [selectedProvider]);
 
   // Modals Toggles
   const [backdoorOpen, setBackdoorOpen] = useState(false);
@@ -130,6 +142,36 @@ export default function App() {
     };
   }, []);
 
+  // Handler to record interactive star rating and compute new average
+  const handleRateProvider = (providerId: string, ratingValue: number) => {
+    if (ratingValue < 1 || ratingValue > 5) return;
+    
+    const currentProviders = db.getProviders();
+    const updatedProviders = currentProviders.map(p => {
+      if (p.id === providerId) {
+        const count = p.reviewCount || 0;
+        const currentRating = p.rating || 0.0;
+        const newCount = count + 1;
+        const newRating = parseFloat(((currentRating * count + ratingValue) / newCount).toFixed(1));
+        return {
+          ...p,
+          rating: newRating,
+          reviewCount: newCount
+        };
+      }
+      return p;
+    });
+
+    db.saveProviders(updatedProviders);
+    setRatingSubmitted(true);
+    
+    // Auto update selectedProvider display in the current active modal
+    const updated = updatedProviders.find(p => p.id === providerId);
+    if (updated) {
+      setSelectedProvider(updated);
+    }
+  };
+
   // Handle Home Click Easter Egg: 5 clicks on Home Icon opens Backdoor Dialog
   const handleHomeIconClick = () => {
     setHomeClickCount(prev => {
@@ -190,7 +232,7 @@ export default function App() {
     const currentBookings = db.getBookings();
     db.saveBookings([...currentBookings, newBooking]);
 
-    // Send Admin Notification
+    // Send Admin Notification, Client Confirmation Notification, and Client Proactive Reminder Notification (1 Hour Before)
     const systemNotifs = db.getNotifications();
     const adminNotif: any = {
       id: `not_${Date.now()}_book`,
@@ -203,7 +245,34 @@ export default function App() {
       isRead: false,
       timestamp: Date.now()
     };
-    db.saveNotifications([...systemNotifs, adminNotif]);
+
+    // 1. Client receipt confirmation notification
+    const clientConfirmNotif: any = {
+      id: `not_${Date.now()}_user_confirm`,
+      title: "تم استلام طلب حجزك بنجاح 📅",
+      body: `عزيزي ${bookingForm.name}، تم تسجيل طلب حجزك للفني ${bookingProvider.name} لموعد يوم ${bookingForm.date || "المحدد"} الساعة ${bookingForm.time || "في أقرب وقت"}. تم إرسال الطلب للفني للتأكيد وتنسيق المباشرة.`,
+      type: "booking",
+      targetType: "users",
+      targetId: currentUser.id,
+      targetRole: "user",
+      isRead: false,
+      timestamp: Date.now()
+    };
+
+    // 2. Client Proactive 1-Hour Reminder Notification
+    const clientReminderNotif: any = {
+      id: `not_${Date.now()}_user_reminder`,
+      title: "⏰ تذكير بموعد الخدمة المجدول (قبل ساعة)",
+      body: `تذكير استباقي للحجز: عزيزي ${bookingForm.name}، نود تذكيرك بالموعد المجدول مع الفني ${bookingProvider.name} بعد ساعة واحدة من الآن في تمام الساعة ${bookingForm.time || "المحددة"}. يرجى التنسيق معه أو الاستعداد للتواجد في الموقع لتسهيل المباشرة!`,
+      type: "booking",
+      targetType: "users",
+      targetId: currentUser.id,
+      targetRole: "user",
+      isRead: false,
+      timestamp: Date.now() + 500
+    };
+
+    db.saveNotifications([...systemNotifs, adminNotif, clientConfirmNotif, clientReminderNotif]);
 
     // Reset Form
     setBookingForm({
@@ -444,6 +513,12 @@ export default function App() {
                   onNewMessage={() => setMessages(db.getMessages())}
                 />
               );
+            case "about":
+              return (
+                <AboutTab
+                  settings={settings}
+                />
+              );
             default:
               return (
                 <HomeTab
@@ -530,6 +605,43 @@ export default function App() {
                 <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/40 p-3 rounded-xl border border-slate-850">
                   {selectedProvider.description}
                 </p>
+              </div>
+
+              {/* Star Rating Section */}
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-850/60 space-y-2.5 text-center">
+                <h4 className="font-extrabold text-slate-300 text-xs">هل تعاملت مع {selectedProvider.name}؟ شاركنا تقييمك للخدمة:</h4>
+                
+                {ratingSubmitted ? (
+                  <p className="text-emerald-400 text-xs font-extrabold animate-pulse">✓ شكراً لك! تم تسجيل تقييمك بـ {userRating} نجوم بنجاح.</p>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="flex items-center gap-1.5 justify-center flex-row-reverse">
+                      {[5, 4, 3, 2, 1].map((star) => (
+                        <button
+                          key={star}
+                          onClick={() => setUserRating(star)}
+                          className="p-1 hover:scale-125 transition-transform cursor-pointer"
+                        >
+                          <Star 
+                            className={`w-6 h-6 ${
+                              userRating >= star 
+                                ? "fill-amber-400 text-amber-400" 
+                                : "text-slate-600 hover:text-slate-400"
+                            }`} 
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    {userRating > 0 && (
+                      <button
+                        onClick={() => handleRateProvider(selectedProvider.id, userRating)}
+                        className="mt-1 px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-[10px] rounded-lg shadow-md transition-all active:scale-95 cursor-pointer"
+                      >
+                        تأكيد وإرسال التقييم ⭐️
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Services offered list */}
@@ -730,9 +842,9 @@ export default function App() {
         )}
       </div>
 
-      {/* 6. BOTTOM NAVIGATION BAR (5 Tabs) */}
+      {/* 6. BOTTOM NAVIGATION BAR (6 Tabs) */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 bg-slate-950 border-t border-slate-850 shadow-2xl shrink-0 select-none">
-        <div className="max-w-md mx-auto grid grid-cols-5 gap-1.5 py-2 px-1 text-center font-sans">
+        <div className="max-w-md mx-auto grid grid-cols-6 gap-1 py-2 px-1 text-center font-sans">
           
           {/* TAB 1: Home/Directory (🏠) with 5-click easter egg */}
           <button
@@ -745,7 +857,7 @@ export default function App() {
             }`}
           >
             <Home className="w-5 h-5" />
-            <span className="text-[10px] font-bold">الرئيسية</span>
+            <span className="text-[10px] font-bold">الدليل</span>
           </button>
 
           {/* TAB 2: Maps Radar (🗺️) */}
@@ -756,7 +868,7 @@ export default function App() {
             }`}
           >
             <Compass className="w-5 h-5" />
-            <span className="text-[10px] font-bold">الخرائط</span>
+            <span className="text-[10px] font-bold">الخريطة</span>
           </button>
 
           {/* TAB 3: Join Vendor Form (👤) */}
@@ -767,7 +879,7 @@ export default function App() {
             }`}
           >
             <UserCheck className="w-5 h-5" />
-            <span className="text-[10px] font-bold">الانضمام</span>
+            <span className="text-[10px] font-bold">انضمام</span>
           </button>
 
           {/* TAB 4: Booking center (📅) */}
@@ -789,7 +901,18 @@ export default function App() {
             }`}
           >
             <MessageSquare className="w-5 h-5" />
-            <span className="text-[10px] font-bold">المحادثات</span>
+            <span className="text-[10px] font-bold">المحادثة</span>
+          </button>
+
+          {/* TAB 6: Information & About (ℹ️) */}
+          <button
+            onClick={() => setActiveTab("about")}
+            className={`flex flex-col items-center justify-center gap-1 transition-all py-1 rounded-xl cursor-pointer ${
+              activeTab === "about" ? "text-amber-500 scale-105" : "text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            <Info className="w-5 h-5" />
+            <span className="text-[10px] font-bold">معلومات</span>
           </button>
 
         </div>

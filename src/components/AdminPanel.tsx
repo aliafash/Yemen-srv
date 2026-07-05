@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { AppSettings, Provider, PendingProvider, Booking, Chat, Message, Notification, User, PresetPalette } from "../types";
 import { 
   Palette, 
@@ -82,6 +82,43 @@ export default function AdminPanel({
     db.saveSettings(updated);
     onUpdateSettings(updated);
     alert("✅ تم حفظ وتطبيق الإعدادات بنجاح!");
+  };
+
+  const handleAboutLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        const img = new Image();
+        img.src = base64;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_WIDTH = 250;
+          const MAX_HEIGHT = 250;
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL("image/jpeg", 0.6);
+          handleSettingsSave({ ...settings, aboutCoverUrl: compressed });
+        };
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // Accept vendor
@@ -327,6 +364,99 @@ export default function AdminPanel({
                 onChange={(e) => handleSettingsSave({ ...settings, isMaintenanceMode: e.target.checked })}
                 className="w-4 h-4 accent-amber-500"
               />
+            </div>
+
+            {/* About screen configuration */}
+            <div className="border-t border-slate-800 pt-4 space-y-4">
+              <h5 className="font-extrabold text-amber-500 text-xs sm:text-sm">ℹ️ تخصيص شاشة معلومات التطبيق (About Page)</h5>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* About cover/logo from phone memory */}
+                <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-850 space-y-2.5">
+                  <label className="block text-slate-300 text-xs font-semibold">صورة شعار/غلاف التطبيق الدائري:</label>
+                  <div className="flex items-center gap-3 flex-row-reverse">
+                    <label className="flex flex-col items-center justify-center p-2.5 border border-dashed border-slate-800 hover:border-amber-500 rounded-lg cursor-pointer bg-slate-900/40 text-slate-500 hover:text-slate-300 transition-all text-center h-16 w-16 shrink-0">
+                      <span className="text-[9px] font-bold">اختر ملف</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleAboutLogoChange} 
+                        className="hidden" 
+                      />
+                    </label>
+                    <div className="grow text-right overflow-hidden">
+                      {settings.aboutCoverUrl ? (
+                        <div className="flex items-center gap-2 flex-row-reverse">
+                          <img 
+                            src={settings.aboutCoverUrl} 
+                            alt="About logo preview" 
+                            className="w-12 h-12 rounded-full object-cover border border-amber-500/40"
+                          />
+                          <span className="text-[9px] text-emerald-400 font-semibold">✓ تم رفع الشعار المخصص من هاتف الإدارة</span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-500 text-[10px]">يعرض شعار WAM الدائري الافتراضي حالياً. انقر لرفع وتغيير الشعار من جهازك.</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 text-xs font-semibold mb-1">عنوان شاشة معلومات:</label>
+                  <input 
+                    type="text" 
+                    value={settings.aboutTitle || "كل خدمات اليمن"} 
+                    onChange={(e) => handleSettingsSave({ ...settings, aboutTitle: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-xs text-white"
+                    placeholder="مثال: كل خدمات اليمن WAM"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-400 text-xs font-semibold mb-1">النسخة الحالية:</label>
+                  <input 
+                    type="text" 
+                    value={settings.aboutVersion || "v3.0.0"} 
+                    onChange={(e) => handleSettingsSave({ ...settings, aboutVersion: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-xs text-white text-center font-mono"
+                    placeholder="v3.0.0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 text-xs font-semibold mb-1">مستوى التشفير:</label>
+                  <input 
+                    type="text" 
+                    value={settings.aboutEncryptionLevel || "تشفير آمن سحابي"} 
+                    onChange={(e) => handleSettingsSave({ ...settings, aboutEncryptionLevel: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-xs text-white text-center"
+                    placeholder="تشفير آمن سحابي"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-400 text-xs font-semibold mb-1">رابط تحميل وتحديث التطبيق المباشر:</label>
+                <input 
+                  type="text" 
+                  value={settings.aboutDownloadUrl || ""} 
+                  onChange={(e) => handleSettingsSave({ ...settings, aboutDownloadUrl: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-xs text-white text-left font-mono"
+                  placeholder="https://..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 text-xs font-semibold mb-1">الوصف والنبذة التعريفية لشاشة معلومات:</label>
+                <textarea 
+                  value={settings.aboutDescription || ""} 
+                  onChange={(e) => handleSettingsSave({ ...settings, aboutDescription: e.target.value })}
+                  rows={3}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white leading-relaxed"
+                  placeholder="المنصة الأولى لربط العملاء بالمهنيين..."
+                />
+              </div>
             </div>
           </div>
         )}

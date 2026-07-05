@@ -38,8 +38,12 @@ export default function MapTab({
   const [currentCity, setCurrentCity] = useState<string>("صنعاء");
   const [searchRadius, setSearchRadius] = useState<number>(20); // default 20km
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>("الكل");
 
   const centerCoords = CITY_COORDINATES[currentCity] || CITY_COORDINATES["صنعاء"];
+
+  // Unique list of categories present in the database plus "All"
+  const categoriesList = ["الكل", ...Array.from(new Set(providers.map(p => p.category)))];
 
   // Helper: Haversine distance in km
   const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -54,8 +58,13 @@ export default function MapTab({
     return R * c;
   };
 
+  // Filter providers first by category
+  const filteredByCat = selectedCategory === "الكل"
+    ? providers
+    : providers.filter(p => p.category === selectedCategory);
+
   // Calculate distance for all providers based on selected center coordinates
-  const providersWithDistance = providers.map(p => {
+  const providersWithDistance = filteredByCat.map(p => {
     // If provider doesn't have lat/lng, generate mock coords close to the center for visual fun
     let lat = p.latitude;
     let lng = p.longitude;
@@ -100,6 +109,29 @@ export default function MapTab({
 
   return (
     <div className="space-y-6" style={{ fontFamily: settings.selectedFontName }} dir="rtl">
+      {/* Category selection row at the top */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 shadow-lg select-none">
+        <span className="block text-slate-400 text-[10px] font-bold mb-2 pr-1">تصفية حسب مجال التخصص (Category):</span>
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth pb-1 flex-row-reverse">
+          {categoriesList.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => {
+                setSelectedCategory(cat);
+                setSelectedProvider(null);
+              }}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                selectedCategory === cat
+                  ? "bg-amber-500 text-black shadow-md shadow-amber-500/20"
+                  : "bg-slate-950 text-slate-400 hover:text-white border border-slate-850"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Search parameters bar */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 text-right space-y-4 shadow-lg">
         <div className="flex items-center gap-2 justify-end">
