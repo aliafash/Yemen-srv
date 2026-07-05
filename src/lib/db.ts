@@ -117,195 +117,7 @@ const SEED_CATEGORIES = [
   { id: "other", name: "أخرى", description: "الطبخ المنزلي، الخياطة والتطريز، التنظيف والتعقيم، تنسيق الحدائق وغيرها", icon: "Briefcase", subCategories: ["خياطة وتطريز", "طبخ منزلي وتجهيز بوفيه", "تنظيف منازل وتعقيم", "حلاقة رجالي كوافير", "صيانة سيارات متنقلة"] },
 ];
 
-const SEED_PROVIDERS: Provider[] = [
-  {
-    id: "prov_777123456",
-    name: "م. ماجد صلاح الصنعاني",
-    phone: "777123456",
-    category: "صيانة منزلية",
-    subCategory: "كهرباء",
-    city: "صنعاء",
-    area: "حدة",
-    address: "صنعاء - شارع حدة - بجانب جولة الرويشان",
-    description: "مهندس كهرباء وتمديدات بخبرة تفوق الـ 10 سنوات في صيانة لوحات التوزيع وتركيب الأنظمة الشمسية المنزلية والذكية بدقة عالية وبأسعار معقولة.",
-    rating: 4.9,
-    reviewCount: 28,
-    isVerified: true,
-    isPinned: true,
-    isRecommended: true,
-    isSubscribed: true,
-    imageUrl: "https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    coverImageUrl: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    portfolioImages: [
-      "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=400",
-      "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=400"
-    ],
-    latitude: 15.318,
-    longitude: 44.195,
-    isAvailable: true,
-    price: 3000,
-    workingHours: "8:00 ص - 9:00 م",
-    services: ["تركيب منظومات طاقة شمسية", "صيانة خطوط كهرباء غرف ومطابخ", "تركيب لوحات تحكم وحماية", "تركيب إضاءات ديكورية ودلايات"],
-    skills: "تطوير لوحات تحكم، تركيب طاقة شمسية كفاءة عالية، إصلاح دوائر قصر",
-    deviceId: "android_mock_device_1",
-    gender: "male",
-    photoType: "personal",
-    timestamp: Date.now() - 1000 * 60 * 60 * 24 * 30, // 30 days ago
-    bookingsCount: 45,
-    viewsCount: 382,
-    callsCount: 65,
-    totalEarnings: 135000,
-    subscriptionEndDate: Date.now() + 1000 * 60 * 60 * 24 * 15 // 15 days left
-  },
-  {
-    id: "prov_733987654",
-    name: "الأسطى غسان عبده العدني",
-    phone: "733987654",
-    category: "صيانة منزلية",
-    subCategory: "سباكة",
-    city: "عدن",
-    area: "كريتر",
-    address: "عدن - كريتر - حافة القاضي بجانب مدرسة الغرباني",
-    description: "فني سباكة متميز في صيانة المضخات، تسليك المجاري والبيارات، وتأسيس شبكات الصرف الصحي للمنازل والعمائر السكنية بأجود الأدوات والمواد.",
-    rating: 4.7,
-    reviewCount: 19,
-    isVerified: true,
-    isPinned: false,
-    isRecommended: true,
-    isSubscribed: false,
-    imageUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    coverImageUrl: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    portfolioImages: [
-      "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=400"
-    ],
-    latitude: 12.790,
-    longitude: 45.035,
-    isAvailable: true,
-    price: 2500,
-    workingHours: "7:00 ص - 6:00 م",
-    services: ["تسليك شبكات مجاري حمامات ومطابخ", "تركيب مضخات مياه وخزانات علوية", "إصلاح تسريبات المياه تحت البلاط والأسقف", "تركيب خلاطات ومغاسل وشاورات حديثة"],
-    skills: "استخدام أجهزة كشف تسريب مائي، لحام مواسير حرارية، تسليك ميكانيكي",
-    deviceId: "android_mock_device_2",
-    gender: "male",
-    photoType: "personal",
-    timestamp: Date.now() - 1000 * 60 * 60 * 24 * 20,
-    bookingsCount: 22,
-    viewsCount: 194,
-    callsCount: 38,
-    totalEarnings: 55000,
-    subscriptionEndDate: 0
-  },
-  {
-    id: "prov_711223344",
-    name: "د. أروى أحمد الشيباني",
-    phone: "711223344",
-    category: "صحة ورعاية",
-    subCategory: "طبيب منزلي",
-    city: "تعز",
-    area: "شارع جمال",
-    address: "تعز - شارع جمال - عمارة الشيباني الدور الثاني",
-    description: "طبيبة عامة متخصصة في تقديم الاستشارات الطبية المنزلية ورعاية ذوي الأمراض المزمنة (السكري، الضغط)، تركيب المحاليل ومتابعة الحالات الطارئة والشيخوخة.",
-    rating: 5.0,
-    reviewCount: 34,
-    isVerified: true,
-    isPinned: true,
-    isRecommended: true,
-    isSubscribed: true,
-    imageUrl: "https://images.unsplash.com/photo-1594824813573-246434e33963?w=150&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    coverImageUrl: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    portfolioImages: [],
-    latitude: 13.579,
-    longitude: 44.015,
-    isAvailable: true,
-    price: 8000,
-    workingHours: "10:00 ص - 8:00 م",
-    services: ["زيارة منزلية وتشخيص عام", "تركيب مغذيات وحقن في الوريد", "قياس ومتابعة السكري والضغط وعمل ملف طبي منزلي", "تقديم رعاية خاصة للأطفال حديثي الولادة والمصابين بفقر الدم"],
-    skills: "تشخيص سريري دقيق، قراءة الأشعة والتحاليل الطبية، تعامل هادئ مع كبار السن",
-    deviceId: "android_mock_device_3",
-    gender: "female",
-    photoType: "profession", // female-friendly profession image placeholder
-    timestamp: Date.now() - 1000 * 60 * 60 * 24 * 15,
-    bookingsCount: 39,
-    viewsCount: 512,
-    callsCount: 94,
-    totalEarnings: 312000,
-    subscriptionEndDate: Date.now() + 1000 * 60 * 60 * 24 * 120 // 120 days left
-  },
-  {
-    id: "prov_777556677",
-    name: "أ. عصام عبدالكريم العولقي",
-    phone: "777556677",
-    category: "تعليم وتدريب",
-    subCategory: "مدرس رياضيات",
-    city: "صنعاء",
-    area: "السبعين",
-    address: "صنعاء - حي السبعين - حارة الصالح",
-    description: "مدرس متخصص في شرح وتبسيط مناهج الرياضيات والجبر والهندسة لطلاب الثانوية والأساسي والتحضير لامتحانات المفاضلة الجامعية بكفاءة عالية.",
-    rating: 4.8,
-    reviewCount: 15,
-    isVerified: false,
-    isPinned: false,
-    isRecommended: false,
-    isSubscribed: false,
-    imageUrl: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    coverImageUrl: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    portfolioImages: [],
-    latitude: 15.295,
-    longitude: 44.208,
-    isAvailable: true,
-    price: 4000,
-    workingHours: "2:00 م - 9:00 م",
-    services: ["تدريس خصوصي منزلي لطلاب الثالث الثانوي علمي", "حصص مراجعة مكثفة قبل الامتحانات الوزارية", "حل نماذج امتحانات يمنية سابقة", "تأسيس لطلاب المرحلة الأساسية في الرياضيات الحديثة"],
-    skills: "أساليب تربوية مشوقة، مهارات تفاعلية ذكية، تمكين الطلاب الضعاف",
-    deviceId: "android_mock_device_4",
-    gender: "male",
-    photoType: "personal",
-    timestamp: Date.now() - 1000 * 60 * 60 * 24 * 5,
-    bookingsCount: 8,
-    viewsCount: 45,
-    callsCount: 12,
-    totalEarnings: 32000,
-    subscriptionEndDate: 0
-  },
-  {
-    id: "prov_777112233",
-    name: "خالد صيانة أندرويد وآيفون",
-    phone: "777112233",
-    category: "خدمات تقنية",
-    subCategory: "صيانة جوالات",
-    city: "إب",
-    area: "الظهار",
-    address: "إب - شارع تعز - مقابل بريد الظهار عمارة الصبر",
-    description: "فني متخصص في صيانة وتقديم الدعم الفني لهواتف الأندرويد والآيفون، إصلاح الشاشات المكسورة، وتغيير الآيسيات والبطاريات مع تقديم ضمانة حقيقية على الصيانة.",
-    rating: 4.9,
-    reviewCount: 22,
-    isVerified: true,
-    isPinned: false,
-    isRecommended: true,
-    isSubscribed: true,
-    imageUrl: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    coverImageUrl: "https://images.unsplash.com/photo-1597740985671-2a8a3b80f02e?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    portfolioImages: [
-      "https://images.unsplash.com/photo-1597740985671-2a8a3b80f02e?w=400"
-    ],
-    latitude: 13.974,
-    longitude: 44.178,
-    isAvailable: true,
-    price: 2000,
-    workingHours: "9:00 ص - 8:00 م",
-    services: ["تبديل شاشات آيفون وأندرويد درجة أولى", "إصلاح مداخل الشحن وسماعات الجوال", "حل مشكلات الشورت في المذر بورد وتخطي الحسابات", "برمجة السوفت وير وتثبيت الرومات الرسمية وفك الشفرات للشركات اليمنية"],
-    skills: "لحام دقيق ميكرو، برمجة رومات وفك شفرات، صيانة هاردوير متقدمة",
-    deviceId: "android_mock_device_5",
-    gender: "male",
-    photoType: "personal",
-    timestamp: Date.now() - 1000 * 60 * 60 * 24 * 2,
-    bookingsCount: 14,
-    viewsCount: 78,
-    callsCount: 21,
-    totalEarnings: 28000,
-    subscriptionEndDate: Date.now() + 1000 * 60 * 60 * 24 * 30
-  }
-];
+const SEED_PROVIDERS: Provider[] = [];
 
 const SEED_BANNERS = [
   { id: "banner_1", title: "مرحباً بكم في بوابة اليمن للخدمات", text: "دليلك الشامل لطلب أمهر الفنيين وأطباء المنازل والمدربين في جميع المدن اليمنية.", type: "text", imageUrl: "https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=800" },
@@ -362,6 +174,15 @@ class ReactiveDB {
     }
     if (!localStorage.getItem("wam_providers")) {
       localStorage.setItem("wam_providers", JSON.stringify(SEED_PROVIDERS));
+    } else {
+      // Purge mock/fake providers from localStorage
+      const mockPhones = ["777123456", "733987654", "711223344", "777556677", "777112233"];
+      try {
+        const raw = localStorage.getItem("wam_providers");
+        const current = raw ? JSON.parse(raw) : [];
+        const filtered = current.filter((p: any) => !mockPhones.includes(p.phone));
+        localStorage.setItem("wam_providers", JSON.stringify(filtered));
+      } catch (e) {}
     }
     if (!localStorage.getItem("wam_pending_providers")) {
       localStorage.setItem("wam_pending_providers", JSON.stringify([]));
@@ -405,6 +226,20 @@ class ReactiveDB {
   private initFirestoreSync() {
     try {
       console.log("Initializing WAM Firebase Firestore Realtime Sync...");
+
+      // Automatically purge all mock/fake providers from Firestore to clean the database completely
+      const mockProviderIds = [
+        "prov_777123456",
+        "prov_733987654",
+        "prov_711223344",
+        "prov_777556677",
+        "prov_777112233"
+      ];
+      mockProviderIds.forEach((mId) => {
+        deleteDoc(doc(firestore, "providers", mId)).catch((err) => {
+          console.error(`Error purging mock provider ${mId} from Firestore:`, err);
+        });
+      });
 
       // 1. Sync AppSettings
       onSnapshot(doc(firestore, "settings", "GLOBAL_SETTINGS"), (snapshot) => {
