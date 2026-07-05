@@ -111,7 +111,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   aboutDescription: "المنصة الأولى لربط العملاء بالمهنيين والحرفيين المعتمدين في كافة المجالات والمحافظات اليمنية مباشرة وبكل سهولة وأمان.",
   aboutVersion: "v3.0.0",
   aboutEncryptionLevel: "تشفير آمن سحابي",
-  aboutDownloadUrl: "https://ais-pre-v5wovkxit3l3v5hw7ej3nn-981585600131.europe-west2.run.app/wam_project_full.zip"
+  aboutDownloadUrl: "https://ais-pre-v5wovkxit3l3v5hw7ej3nn-981585600131.europe-west2.run.app/wam_project_full.zip",
+  showProviderStats: true
 };
 
 const SEED_CATEGORIES = [

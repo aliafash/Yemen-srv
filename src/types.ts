@@ -83,6 +83,7 @@ export interface AppSettings {
   aboutVersion?: string;
   aboutEncryptionLevel?: string;
   aboutDownloadUrl?: string;
+  showProviderStats?: boolean;
 }
 
 export interface Provider {
@@ -219,4 +220,5 @@ export interface User {
   deviceId: string;
   points?: number;
   isVerified?: boolean;
+  favorites?: string[];
 }

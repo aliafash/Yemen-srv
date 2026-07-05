@@ -11,7 +11,8 @@ import {
   User, 
   Clock, 
   MapPin, 
-  ExternalLink 
+  ExternalLink,
+  Heart
 } from "lucide-react";
 
 interface ProviderCardProps {
@@ -21,6 +22,8 @@ interface ProviderCardProps {
   onBookClick: (provider: Provider) => void;
   onChatClick: (provider: Provider) => void;
   onSelect: (provider: Provider) => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: (providerId: string, e: React.MouseEvent) => void;
 }
 
 export default function ProviderCard({
@@ -28,7 +31,9 @@ export default function ProviderCard({
   settings,
   onBookClick,
   onChatClick,
-  onSelect
+  onSelect,
+  isFavorite = false,
+  onToggleFavorite
 }: ProviderCardProps) {
   const [copied, setCopied] = useState(false);
 
@@ -80,6 +85,18 @@ export default function ProviderCard({
       }`}
       style={{ fontFamily: settings.selectedFontName }}
     >
+      {/* Favorite toggle heart icon */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleFavorite?.(provider.id, e);
+        }}
+        className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-slate-950/60 hover:bg-slate-950/85 text-rose-500 hover:scale-110 active:scale-95 transition-all cursor-pointer border border-slate-800/40"
+        title={isFavorite ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}
+      >
+        <Heart className={`w-3.5 h-3.5 ${isFavorite ? "fill-rose-500 text-rose-500" : "text-slate-300 hover:text-rose-400"}`} />
+      </button>
+
       {/* Pinned/VIP Badge */}
       {provider.isPinned && (
         <div className="absolute top-2 left-2 z-10 bg-gradient-to-r from-amber-600 to-amber-500 text-black font-extrabold text-[10px] px-2 py-0.5 rounded-full shadow flex items-center gap-1">

@@ -366,6 +366,19 @@ export default function AdminPanel({
               />
             </div>
 
+            <div className="flex items-center justify-between p-3.5 bg-slate-950 rounded-xl border border-slate-850">
+              <div>
+                <h5 className="font-bold text-white text-xs">إظهار شاشة إحصائيات لمقدم الخدمة 📊</h5>
+                <p className="text-[10px] text-slate-500 mt-0.5">تفعيل هذا الخيار يمنح الفنيين إمكانية تصفح إحصائيات الحجوزات المكتملة والأرباح ومتوسط التقييمات في لوحتهم.</p>
+              </div>
+              <input 
+                type="checkbox" 
+                checked={settings.showProviderStats ?? true} 
+                onChange={(e) => handleSettingsSave({ ...settings, showProviderStats: e.target.checked })}
+                className="w-4 h-4 accent-amber-500 cursor-pointer"
+              />
+            </div>
+
             {/* About screen configuration */}
             <div className="border-t border-slate-800 pt-4 space-y-4">
               <h5 className="font-extrabold text-amber-500 text-xs sm:text-sm">ℹ️ تخصيص شاشة معلومات التطبيق (About Page)</h5>

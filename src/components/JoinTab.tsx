@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { AppSettings, PendingProvider, User } from "../types";
+import { AppSettings, PendingProvider, User, Booking, Provider } from "../types";
 import { 
   FileText, 
   Upload, 
@@ -14,20 +14,37 @@ import {
   Info
 } from "lucide-react";
 import { db } from "../lib/db";
+import ProviderStats from "./ProviderStats";
 
 interface JoinTabProps {
   settings: AppSettings;
   categories: any[];
   currentUser: User | null;
   onRegistered: () => void;
+  bookings?: Booking[];
+  providers?: Provider[];
 }
 
 export default function JoinTab({
   settings,
   categories,
   currentUser,
-  onRegistered
+  onRegistered,
+  bookings,
+  providers
 }: JoinTabProps) {
+  // If user is logged in as a provider, show their Stats Dashboard!
+  if (currentUser?.role === "provider") {
+    return (
+      <ProviderStats
+        settings={settings}
+        bookings={bookings || db.getBookings()}
+        providers={providers || db.getProviders()}
+        currentUser={currentUser}
+      />
+    );
+  }
+
   const [name, setName] = useState(currentUser?.name || "");
   const [phone, setPhone] = useState(currentUser?.phone || "");
   const [category, setCategory] = useState("");

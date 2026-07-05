@@ -35,7 +35,8 @@ import {
   Clock,
   User as UserIcon,
   Phone,
-  Info
+  Info,
+  Heart
 } from "lucide-react";
 
 // Modular Components
@@ -49,6 +50,7 @@ import SmartAssistant from "./components/SmartAssistant";
 import BackdoorDialog from "./components/BackdoorDialog";
 import NotificationCenter from "./components/NotificationCenter";
 import AdminPanel from "./components/AdminPanel";
+import UserProfileDialog from "./components/UserProfileDialog";
 
 export default function App() {
   // Reactive Database States
@@ -80,6 +82,7 @@ export default function App() {
   const [backdoorOpen, setBackdoorOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   // Secret Easter Egg click counter
   const [homeClickCount, setHomeClickCount] = useState(0);
@@ -163,6 +166,7 @@ export default function App() {
     });
 
     db.saveProviders(updatedProviders);
+    setProviders(updatedProviders);
     setRatingSubmitted(true);
     
     // Auto update selectedProvider display in the current active modal
@@ -170,6 +174,31 @@ export default function App() {
     if (updated) {
       setSelectedProvider(updated);
     }
+  };
+
+  // Toggle favorite provider for the current logged-in user
+  const handleToggleFavorite = (providerId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const currentUsers = db.getUsers();
+    let userRecord = currentUsers.find(u => u.id === currentUser.id);
+    if (!userRecord) {
+      userRecord = { ...currentUser, favorites: [] };
+    }
+    
+    const favs = userRecord.favorites || [];
+    let updatedFavs: string[];
+    if (favs.includes(providerId)) {
+      updatedFavs = favs.filter(id => id !== providerId);
+    } else {
+      updatedFavs = [...favs, providerId];
+    }
+    
+    const updatedUser = { ...userRecord, favorites: updatedFavs };
+    const otherUsers = currentUsers.filter(u => u.id !== currentUser.id);
+    const newUsers = [...otherUsers, updatedUser];
+    db.saveUsers(newUsers);
+    setUsers(newUsers);
+    setCurrentUser(updatedUser);
   };
 
   // Handle Home Click Easter Egg: 5 clicks on Home Icon opens Backdoor Dialog
@@ -391,6 +420,15 @@ export default function App() {
           {/* Quick Support Caller */}
           <div className="flex items-center gap-2 flex-row-reverse">
             <button
+              onClick={() => setProfileOpen(true)}
+              className="px-3 py-1.5 bg-gradient-to-r from-rose-950/40 to-slate-900 border border-slate-800 hover:border-rose-500/50 text-slate-300 hover:text-rose-400 font-extrabold text-[10px] rounded-lg transition-all flex items-center gap-1.5 flex-row-reverse cursor-pointer"
+              title="تصفح حسابك وقائمة المفضلات"
+            >
+              <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500/20" />
+              <span>الملف الشخصي</span>
+            </button>
+
+            <button
               onClick={() => window.open(`tel:${settings.supportPhone}`)}
               className="px-3 py-1.5 bg-slate-900 border border-slate-800 hover:border-emerald-500 text-slate-300 hover:text-emerald-400 font-extrabold text-[10px] rounded-lg transition-all flex items-center gap-1.5 flex-row-reverse cursor-pointer"
               title="اتصال مباشر بالدعم الفني الموحد"
@@ -415,6 +453,16 @@ export default function App() {
                   } else if (role === "admin") {
                     u = { id: "admin_maher", name: "WAM2026 (المدير الرئيسي)", phone: "777644", area: "صنعاء", role: "admin", deviceId: "web_maher" };
                   }
+                  
+                  // Persistent user check to keep favorites and data intact
+                  const currentUsers = db.getUsers();
+                  const savedUser = currentUsers.find(user => user.id === u.id);
+                  if (savedUser) {
+                    u = savedUser;
+                  } else {
+                    db.saveUsers([...currentUsers, u]);
+                  }
+
                   setCurrentUser(u);
                   alert(`🔄 تم محاكاة دخول سريع بصلاحية: [${u.name} - ${role}]`);
                 }}
@@ -485,6 +533,8 @@ export default function App() {
                   settings={settings}
                   categories={preloadedCategories}
                   currentUser={currentUser}
+                  bookings={bookings}
+                  providers={providers}
                   onRegistered={() => {
                     setPendingProviders(db.getPendingProviders());
                     setNotifications(db.getNotifications());
@@ -530,6 +580,7 @@ export default function App() {
                   onBookClick={(p) => setBookingProvider(p)}
                   onChatClick={(p) => handleOpenChat(p.id, p.name)}
                   onSelectProvider={(p) => setSelectedProvider(p)}
+                  onToggleFavorite={handleToggleFavorite}
                 />
               );
           }
@@ -969,6 +1020,16 @@ export default function App() {
         notifications={notifications}
         settings={settings}
         onUpdated={() => setNotifications(db.getNotifications())}
+      />
+
+      <UserProfileDialog
+        isOpen={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        currentUser={currentUser}
+        providers={providers}
+        settings={settings}
+        onToggleFavorite={handleToggleFavorite}
+        onSelectProvider={(p) => setSelectedProvider(p)}
       />
 
       {/* 8. HUMBLE LITERAL FOOTER */}

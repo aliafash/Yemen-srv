@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { AppSettings, Provider, User } from "../types";
 import { 
   Search, 
@@ -26,6 +26,7 @@ interface HomeTabProps {
   onBookClick: (provider: Provider) => void;
   onChatClick: (provider: Provider) => void;
   onSelectProvider: (provider: Provider) => void;
+  onToggleFavorite?: (providerId: string, e: React.MouseEvent) => void;
 }
 
 export default function HomeTab({
@@ -36,7 +37,8 @@ export default function HomeTab({
   currentUser,
   onBookClick,
   onChatClick,
-  onSelectProvider
+  onSelectProvider,
+  onToggleFavorite
 }: HomeTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -383,6 +385,8 @@ export default function HomeTab({
                   onBookClick={onBookClick}
                   onChatClick={onChatClick}
                   onSelect={onSelectProvider}
+                  isFavorite={currentUser?.favorites?.includes(provider.id)}
+                  onToggleFavorite={onToggleFavorite}
                 />
               ))}
             </div>
@@ -416,6 +420,8 @@ export default function HomeTab({
                   onBookClick={onBookClick}
                   onChatClick={onChatClick}
                   onSelect={onSelectProvider}
+                  isFavorite={currentUser?.favorites?.includes(provider.id)}
+                  onToggleFavorite={onToggleFavorite}
                 />
               ))}
             </div>
