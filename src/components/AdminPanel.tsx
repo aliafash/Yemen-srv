@@ -23,7 +23,9 @@ import {
   FileSpreadsheet,
   AlertOctagon,
   Sparkles,
-  Award
+  Award,
+  Database,
+  Download
 } from "lucide-react";
 import { db } from "../lib/db";
 import { customFirebaseConfig } from "../lib/firebase-custom-config";
@@ -129,6 +131,48 @@ export default function AdminPanel({
     } finally {
       setIsFirebaseSeeding(false);
     }
+  };
+
+  // EXPORT BACKUP TO PHONE STORAGE
+  const handleExportBackup = () => {
+    try {
+      const jsonStr = db.exportBackupData();
+      const blob = new Blob([jsonStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `wam_backup_${new Date().toISOString().substring(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      alert("✅ تم تصدير النسخة الاحتياطية وحفظها بنجاح على ذاكرة هاتفك!");
+    } catch (err: any) {
+      alert(`❌ فشل تصدير النسخة الاحتياطية: ${err?.message || err}`);
+    }
+  };
+
+  // IMPORT BACKUP FROM PHONE STORAGE
+  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const jsonStr = event.target?.result as string;
+        const res = await db.importBackupData(jsonStr);
+        if (res.success) {
+          onRefreshData();
+          alert("✅ تم استعادة جميع البيانات، الأقسام، الألوان، الحجوزات والمحادثات بنجاح ومزامنتها سحابياً!");
+        } else {
+          alert(`❌ فشل الاستعادة: ${res.error}`);
+        }
+      } catch (err: any) {
+        alert(`❌ فشل قراءة ملف الاستعادة: ${err?.message || err}`);
+      }
+    };
+    reader.readAsText(file);
   };
 
   // Tab titles translated to Arabic
@@ -612,6 +656,39 @@ export default function AdminPanel({
                     <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping"></span>
                     <span className="text-xs font-bold text-white">نشطة محلياً ومستقرة 100%</span>
                   </div>
+                </div>
+              </div>
+
+              {/* Premium Backup & Restore Section */}
+              <div className="bg-slate-950 border border-slate-850 rounded-xl p-5 mt-6 text-right space-y-4">
+                <h6 className="font-extrabold text-amber-500 text-xs sm:text-sm flex items-center gap-1.5 flex-row-reverse border-b border-slate-850 pb-2.5">
+                  <Database className="w-5 h-5 text-amber-500" />
+                  <span>النسخ الاحتياطي والاستعادة الفائقة لمزامنة الـ APK 💾</span>
+                </h6>
+                
+                <p className="text-slate-400 text-[10px] leading-relaxed">
+                  يمكنك تصدير نسخة احتياطية كاملة (تشمل الأقسام، مقدمي الخدمات، الحجوزات، المحادثات، إعدادات الألوان وكل شيء) إلى ذاكرة هاتفك كملف مشفر لاستعادته لاحقاً في تطبيق APK بحساب مزممنة آخر لضمان عدم تلف البيانات أو تعارضها مع قاعدة البيانات.
+                </p>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button
+                    onClick={handleExportBackup}
+                    className="py-2.5 bg-amber-600 hover:bg-amber-500 text-black text-xs font-extrabold rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow"
+                  >
+                    <Download className="w-4.5 h-4.5 text-black" />
+                    <span>تصدير نسخة احتياطية 📥</span>
+                  </button>
+
+                  <label className="py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 border border-slate-700 text-center">
+                    <Database className="w-4.5 h-4.5" />
+                    <span>استعادة نسخة احتياطية 📤</span>
+                    <input 
+                      type="file" 
+                      accept=".json" 
+                      onChange={handleImportBackup} 
+                      className="hidden" 
+                    />
+                  </label>
                 </div>
               </div>
 
@@ -1134,6 +1211,68 @@ export default function AdminPanel({
                 </div>
               ))}
             </div>
+
+            {/* Electronic Payment & E-Wallets Gateway Management */}
+            <div className="bg-slate-950/80 border border-slate-850 rounded-xl p-4.5 mt-5 space-y-4 text-right">
+              <h5 className="font-extrabold text-white text-xs sm:text-sm flex items-center gap-1.5 flex-row-reverse border-b border-slate-900 pb-2.5">
+                <CreditCard className="w-4.5 h-4.5 text-amber-500" />
+                <span>إعدادات بوابة الدفع الإلكتروني WAM Pay والمحافظ 💳</span>
+              </h5>
+
+              <div className="flex items-center justify-between p-3 bg-slate-900/60 rounded-xl border border-slate-850">
+                <div>
+                  <h6 className="font-bold text-white text-xs">تفعيل نظام الدفع الإلكتروني للمستخدمين</h6>
+                  <p className="text-[10px] text-slate-500 mt-0.5">عند التفعيل تظهر شاشة الدفع والفوترة كعلامة تبويب كاملة في شريط التنقل السفلي.</p>
+                </div>
+                <input 
+                  type="checkbox" 
+                  checked={settings.isPaymentEnabled || false} 
+                  onChange={(e) => handleSettingsSave({ ...settings, isPaymentEnabled: e.target.checked })}
+                  className="w-4 h-4 accent-amber-500 cursor-pointer"
+                />
+              </div>
+
+              {settings.isPaymentEnabled && (
+                <div className="space-y-4 pt-2">
+                  <h6 className="text-[11px] font-extrabold text-amber-500">تحديث أرقام حسابات محافظ تجار اليمن:</h6>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4.5 font-sans">
+                    <div className="space-y-1.5">
+                      <label className="block text-slate-400 text-[10px] sm:text-xs font-bold">حساب الكريمي (ام فلوس):</label>
+                      <input 
+                        type="text"
+                        value={settings.paymentMerchantKuraimi || ""}
+                        onChange={(e) => handleSettingsSave({ ...settings, paymentMerchantKuraimi: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 font-mono text-xs text-white"
+                        placeholder="أدخل رقم الحساب التاجر"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-slate-400 text-[10px] sm:text-xs font-bold">حساب أم فلوس (التضامن):</label>
+                      <input 
+                        type="text"
+                        value={settings.paymentMerchantMFloos || ""}
+                        onChange={(e) => handleSettingsSave({ ...settings, paymentMerchantMFloos: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 font-mono text-xs text-white"
+                        placeholder="أدخل رقم الحساب التاجر"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-slate-400 text-[10px] sm:text-xs font-bold">حساب جوال بي (كاش):</label>
+                      <input 
+                        type="text"
+                        value={settings.paymentMerchantJawwalPay || ""}
+                        onChange={(e) => handleSettingsSave({ ...settings, paymentMerchantJawwalPay: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 font-mono text-xs text-white"
+                        placeholder="أدخل رقم الحساب التاجر"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -1200,8 +1339,70 @@ export default function AdminPanel({
           </div>
         )}
 
+        {/* TAB 17: Loyalty Points configurations */}
+        {activeTab === 17 && (
+          <div className="space-y-4 text-right">
+            <h4 className="font-extrabold text-white text-sm">🏆 إدارة نقاط الولاء والمكافآت الفنية</h4>
+            
+            <div className="flex items-center justify-between p-3.5 bg-slate-950 rounded-xl border border-slate-850">
+              <div>
+                <h5 className="font-bold text-white text-xs">تفعيل نظام نقاط الولاء للمستخدمين</h5>
+                <p className="text-[10px] text-slate-500 mt-0.5">إظهار أو إخفاء نقاط الولاء والمكافآت في الملف الشخصي ومزودي الخدمات.</p>
+              </div>
+              <input 
+                type="checkbox" 
+                checked={settings.isLoyaltyEnabled || false} 
+                onChange={(e) => handleSettingsSave({ ...settings, isLoyaltyEnabled: e.target.checked })}
+                className="w-4 h-4 accent-amber-500 cursor-pointer"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 space-y-2">
+                <label className="block text-slate-400 text-xs font-semibold">النقاط الممنوحة عند حجز الخدمة:</label>
+                <input 
+                  type="number"
+                  value={settings.loyaltyPointsPerBooking || 10}
+                  onChange={(e) => handleSettingsSave({ ...settings, loyaltyPointsPerBooking: Number(e.target.value) })}
+                  className="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-center font-mono text-xs text-white"
+                />
+              </div>
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 space-y-2">
+                <label className="block text-slate-400 text-xs font-semibold">النقاط الممنوحة عند المشاركة:</label>
+                <input 
+                  type="number"
+                  value={settings.loyaltyPointsPerShare || 5}
+                  onChange={(e) => handleSettingsSave({ ...settings, loyaltyPointsPerShare: Number(e.target.value) })}
+                  className="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-center font-mono text-xs text-white"
+                />
+              </div>
+            </div>
+
+            <div className="bg-rose-950/20 border border-rose-500/20 rounded-xl p-5 space-y-4 text-right">
+              <h5 className="font-extrabold text-rose-400 text-xs sm:text-sm">⚠️ إجراءات خطيرة (تصفير وحذف نقاط الولاء)</h5>
+              <p className="text-slate-300 text-xs leading-relaxed">
+                هذا الخيار سيقوم بحذف وإعادة تصفير نقاط الولاء لجميع العملاء ومزودي الخدمات في قاعدة البيانات (المحلية والسحابية). هذا الإجراء فوري ولا يمكن التراجع عنه.
+              </p>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (confirm("⚠️ هل أنت متأكد تماماً من رغبتك في حذف وتصفير جميع نقاط الولاء لكافة المستخدمين؟")) {
+                    const allUsers = users.map(u => ({ ...u, points: 0 }));
+                    db.saveUsers(allUsers);
+                    onRefreshData();
+                    alert("✅ تم حذف وتصفير نقاط الولاء لجميع المستخدمين بنجاح ومزامنتها سحابياً!");
+                  }
+                }}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg transition-all cursor-pointer"
+              >
+                تصفير وحذف جميع نقاط الولاء 🗑️
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Fallback view for remaining tabs */}
-        {activeTab > 10 && (
+        {activeTab > 10 && activeTab !== 17 && (
           <div className="p-8 text-center text-slate-500 border border-dashed border-slate-800 rounded-xl space-y-3">
             <Lock className="w-10 h-10 text-slate-700 mx-auto animate-pulse" />
             <h5 className="font-bold text-white text-xs">ميزة [{ADMIN_TABS[activeTab].name}] مفعلة ونشطة تلقائياً</h5>

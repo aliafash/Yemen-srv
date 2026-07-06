@@ -113,7 +113,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   aboutVersion: "v3.0.0",
   aboutEncryptionLevel: "تشفير آمن سحابي",
   aboutDownloadUrl: "https://ais-pre-v5wovkxit3l3v5hw7ej3nn-981585600131.europe-west2.run.app/wam_project_full.zip",
-  showProviderStats: true
+  showProviderStats: true,
+  isPaymentEnabled: false,
+  paymentMerchantKuraimi: "123456",
+  paymentMerchantMFloos: "777644",
+  paymentMerchantJawwalPay: "987654"
 };
 
 const SEED_CATEGORIES = [
@@ -259,6 +263,15 @@ class ReactiveDB {
             const localRaw = localStorage.getItem(`wam_${colName}`);
             const localItems = localRaw ? JSON.parse(localRaw) : [];
             
+            // CRITICAL PROTECTION: If firestore snapshot is empty, but we have default local seed data,
+            // we should UPLOAD our local seed data to Firestore instead of letting it wipe our local state!
+            if (snapshot.empty && localItems.length > 0 && 
+                ["categories", "banners", "faqs", "notifications", "users"].includes(colName)) {
+              console.log(`Firestore collection ${colName} is empty. Uploading default seed data...`);
+              this.saveCollection(colName, localItems);
+              return;
+            }
+            
             if (JSON.stringify(items) !== JSON.stringify(localItems)) {
               localStorage.setItem(`wam_${colName}`, JSON.stringify(items));
               this.notify(colName);
@@ -278,12 +291,22 @@ class ReactiveDB {
       onSnapshot(
         doc(firestore, "settings", "GLOBAL_SETTINGS"),
         (snapshot) => {
+          const localRaw = localStorage.getItem("wam_settings");
           if (snapshot.exists()) {
             const settings = snapshot.data();
-            const localRaw = localStorage.getItem("wam_settings");
             if (JSON.stringify(settings) !== localRaw) {
               localStorage.setItem("wam_settings", JSON.stringify(settings));
               this.notify("settings");
+            }
+          } else {
+            // CRITICAL PROTECTION: If global settings doesn't exist in Firestore, write it from local
+            if (localRaw) {
+              console.log("Firestore settings document does not exist. Uploading from local...");
+              try {
+                setDoc(doc(firestore, "settings", "GLOBAL_SETTINGS"), JSON.parse(localRaw));
+              } catch (err) {
+                console.error("Failed to seed settings:", err);
+              }
             }
           }
         },
@@ -634,6 +657,82 @@ class ReactiveDB {
       } catch (err) {
         console.error("Error clearing Firestore data:", err);
       }
+    }
+  }
+
+  // EXPORT BACKUP DATA (to JSON format)
+  public exportBackupData(): string {
+    const backupObj: Record<string, any> = {};
+    const keysToBackup = [
+      "settings",
+      "categories",
+      "providers",
+      "pending_providers",
+      "bookings",
+      "chats",
+      "messages",
+      "notifications",
+      "banners",
+      "faqs",
+      "users",
+      "reviews"
+    ];
+    
+    // Backup settings
+    backupObj["settings"] = this.getSettings();
+    
+    // Backup collections
+    keysToBackup.slice(1).forEach(col => {
+      backupObj[col] = this.getCollection(col);
+    });
+    
+    return JSON.stringify({
+      version: "wam_backup_v1",
+      timestamp: Date.now(),
+      data: backupObj
+    }, null, 2);
+  }
+
+  // IMPORT BACKUP DATA (from JSON format)
+  public async importBackupData(jsonString: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const parsed = JSON.parse(jsonString);
+      if (!parsed || parsed.version !== "wam_backup_v1" || !parsed.data) {
+        return { success: false, error: "صيغة ملف النسخ الاحتياطي غير صالحة أو غير متوافقة." };
+      }
+      
+      const backupData = parsed.data;
+      
+      // 1. Save Settings
+      if (backupData.settings) {
+        await this.saveSettings(backupData.settings);
+      }
+      
+      // 2. Save all other collections
+      const collections = [
+        "categories",
+        "providers",
+        "pending_providers",
+        "bookings",
+        "chats",
+        "messages",
+        "notifications",
+        "banners",
+        "faqs",
+        "users",
+        "reviews"
+      ];
+      
+      for (const col of collections) {
+        if (Array.isArray(backupData[col])) {
+          await this.saveCollection(col, backupData[col]);
+        }
+      }
+      
+      return { success: true };
+    } catch (err: any) {
+      console.error("Failed to import backup data:", err);
+      return { success: false, error: err?.message || String(err) };
     }
   }
 }

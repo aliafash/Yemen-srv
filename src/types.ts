@@ -85,6 +85,10 @@ export interface AppSettings {
   aboutDownloadUrl?: string;
   showProviderStats?: boolean;
   isOnboardingEnabled?: boolean;
+  isPaymentEnabled?: boolean;
+  paymentMerchantKuraimi?: string;
+  paymentMerchantMFloos?: string;
+  paymentMerchantJawwalPay?: string;
 }
 
 export interface Provider {

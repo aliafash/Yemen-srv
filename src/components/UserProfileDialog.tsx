@@ -89,7 +89,7 @@ export default function UserProfileDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-3.5 border-t border-slate-850/60 text-[11px] sm:text-xs">
+            <div className={`grid ${settings.isLoyaltyEnabled ? "grid-cols-2" : "grid-cols-1"} gap-3 pt-3.5 border-t border-slate-850/60 text-[11px] sm:text-xs`}>
               <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-850/30 text-right">
                 <span className="text-slate-500 text-[10px] block">الموقع المختار:</span>
                 <span className="text-slate-200 font-bold flex items-center gap-1 justify-end mt-0.5">
@@ -97,13 +97,15 @@ export default function UserProfileDialog({
                   {currentUser.area || "اليمن"}
                 </span>
               </div>
-              <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-850/30 text-right">
-                <span className="text-slate-500 text-[10px] block">نقاط الولاء الفنية:</span>
-                <span className="text-amber-400 font-bold flex items-center gap-1 justify-end mt-0.5">
-                  <Award className="w-3.5 h-3.5 text-amber-500" />
-                  {calculatedPoints} نقطة
-                </span>
-              </div>
+              {settings.isLoyaltyEnabled && (
+                <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-850/30 text-right">
+                  <span className="text-slate-500 text-[10px] block">نقاط الولاء الفنية:</span>
+                  <span className="text-amber-400 font-bold flex items-center gap-1 justify-end mt-0.5">
+                    <Award className="w-3.5 h-3.5 text-amber-500" />
+                    {calculatedPoints} نقطة
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 

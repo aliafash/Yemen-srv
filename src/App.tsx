@@ -36,7 +36,8 @@ import {
   User as UserIcon,
   Phone,
   Info,
-  Heart
+  Heart,
+  CreditCard
 } from "lucide-react";
 
 // Modular Components
@@ -46,6 +47,7 @@ import JoinTab from "./components/JoinTab";
 import BookingTab from "./components/BookingTab";
 import ChatTab from "./components/ChatTab";
 import AboutTab from "./components/AboutTab";
+import PaymentTab from "./components/PaymentTab";
 import SmartAssistant from "./components/SmartAssistant";
 import BackdoorDialog from "./components/BackdoorDialog";
 import NotificationCenter from "./components/NotificationCenter";
@@ -66,7 +68,7 @@ export default function App() {
   const [users, setUsers] = useState<User[]>([]);
 
   // Active Screen states
-  const [activeTab, setActiveTab] = useState<"home" | "map" | "join" | "booking" | "chat" | "admin">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "map" | "join" | "booking" | "chat" | "about" | "payment" | "admin">("home");
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const [bookingProvider, setBookingProvider] = useState<Provider | null>(null);
 
@@ -223,7 +225,7 @@ export default function App() {
   };
 
   const handleRoleChangeAttempt = (role: string) => {
-    if (role === "admin" || role === "provider" || role === "supervisor") {
+    if (role === "admin" || role === "provider" || role === "supervisor" || role === "owner") {
       setPendingRoleToSwitch(role);
       setRolePasswordInput("");
       setRolePasswordError("");
@@ -269,6 +271,8 @@ export default function App() {
       if (!isSuccess) {
         if (pendingRoleToSwitch === "admin") {
           isSuccess = rolePasswordInput === (settings.adminPassword || "maher736462");
+        } else if (pendingRoleToSwitch === "owner") {
+          isSuccess = rolePasswordInput === (settings.backdoorPassword || "maher--736462");
         } else if (pendingRoleToSwitch === "supervisor") {
           isSuccess = rolePasswordInput === (settings.adminPassword || "maher736462") || 
                       rolePasswordInput === (settings.backdoorPassword || "maher--736462");
@@ -282,6 +286,8 @@ export default function App() {
         let u: User;
         if (pendingRoleToSwitch === "admin") {
           u = { id: "admin_maher", name: "WAM2026 (المدير الرئيسي)", phone: "777644", area: "صنعاء", role: "admin", deviceId: "web_maher" };
+        } else if (pendingRoleToSwitch === "owner") {
+          u = { id: "owner_wam2026", name: "WAM2026", phone: "777644", area: "صنعاء", role: "owner", deviceId: "android_id_owner" };
         } else if (pendingRoleToSwitch === "supervisor") {
           u = { id: "supervisor_wam", name: "مشرف بوابة WAM", phone: "777644", area: "صنعاء", role: "supervisor", deviceId: "web_supervisor" };
         } else {
@@ -309,6 +315,8 @@ export default function App() {
       let isSuccess = false;
       if (pendingRoleToSwitch === "admin") {
         isSuccess = rolePasswordInput === (settings.adminPassword || "maher736462");
+      } else if (pendingRoleToSwitch === "owner") {
+        isSuccess = rolePasswordInput === (settings.backdoorPassword || "maher--736462");
       } else if (pendingRoleToSwitch === "supervisor") {
         isSuccess = rolePasswordInput === (settings.adminPassword || "maher736462") || 
                     rolePasswordInput === (settings.backdoorPassword || "maher--736462");
@@ -321,6 +329,8 @@ export default function App() {
         let u: User;
         if (pendingRoleToSwitch === "admin") {
           u = { id: "admin_maher", name: "WAM2026 (المدير الرئيسي)", phone: "777644", area: "صنعاء", role: "admin", deviceId: "web_maher" };
+        } else if (pendingRoleToSwitch === "owner") {
+          u = { id: "owner_wam2026", name: "WAM2026", phone: "777644", area: "صنعاء", role: "owner", deviceId: "android_id_owner" };
         } else if (pendingRoleToSwitch === "supervisor") {
           u = { id: "supervisor_wam", name: "مشرف بوابة WAM", phone: "777644", area: "صنعاء", role: "supervisor", deviceId: "web_supervisor" };
         } else {
@@ -625,6 +635,7 @@ export default function App() {
                 <option value="provider" className="bg-slate-950 text-white">فني معتمد (Provider)</option>
                 <option value="supervisor" className="bg-slate-950 text-white">مشرف البوابة (Supervisor)</option>
                 <option value="admin" className="bg-slate-950 text-white">المدير العام (Admin)</option>
+                <option value="owner" className="bg-slate-950 text-white">المالك WAM2026 (Owner)</option>
               </select>
             </div>
           </div>
@@ -720,6 +731,13 @@ export default function App() {
               return (
                 <AboutTab
                   settings={settings}
+                />
+              );
+            case "payment":
+              return (
+                <PaymentTab
+                  settings={settings}
+                  currentUser={currentUser}
                 />
               );
             default:
@@ -1061,9 +1079,9 @@ export default function App() {
         )}
       </div>
 
-      {/* 6. BOTTOM NAVIGATION BAR (6 Tabs) */}
+      {/* 6. BOTTOM NAVIGATION BAR (6 or 7 Tabs) */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 bg-slate-950 border-t border-slate-850 shadow-2xl shrink-0 select-none">
-        <div className="max-w-md mx-auto grid grid-cols-6 gap-1 py-2 px-1 text-center font-sans">
+        <div className={`max-w-md mx-auto grid ${settings.isPaymentEnabled ? "grid-cols-7" : "grid-cols-6"} gap-1 py-2 px-1 text-center font-sans`}>
           
           {/* TAB 1: Home/Directory (🏠) with 5-click easter egg */}
           <button
@@ -1123,7 +1141,20 @@ export default function App() {
             <span className="text-[10px] font-bold">المحادثة</span>
           </button>
 
-          {/* TAB 6: Information & About (ℹ️) */}
+          {/* TAB 6: WAM Pay Electronic Payments (💳) (Conditional) */}
+          {settings.isPaymentEnabled && (
+            <button
+              onClick={() => setActiveTab("payment")}
+              className={`flex flex-col items-center justify-center gap-1 transition-all py-1 rounded-xl cursor-pointer ${
+                activeTab === "payment" ? "text-amber-500 scale-105" : "text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              <CreditCard className="w-5 h-5" />
+              <span className="text-[10px] font-bold">الدفع</span>
+            </button>
+          )}
+
+          {/* TAB 7: Information & About (ℹ️) */}
           <button
             onClick={() => setActiveTab("about")}
             className={`flex flex-col items-center justify-center gap-1 transition-all py-1 rounded-xl cursor-pointer ${

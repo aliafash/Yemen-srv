@@ -185,7 +185,9 @@ export default function ProviderStats({
               />
             </div>
             <p className="text-[10px] text-slate-500 text-center">
-              تحقيق الأهداف الشهرية يزيد من نقاط الولاء وفرص ظهور حسابك كفني نخبة VIP!
+              {settings.isLoyaltyEnabled 
+                ? "تحقيق الأهداف الشهرية يزيد من نقاط الولاء وفرص ظهور حسابك كفني نخبة VIP!" 
+                : "تحقيق الأهداف الشهرية يزيد من تقييمك وفرص ظهور حسابك كفني نخبة VIP!"}
             </p>
           </div>
 
