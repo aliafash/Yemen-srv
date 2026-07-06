@@ -84,6 +84,7 @@ export interface AppSettings {
   aboutEncryptionLevel?: string;
   aboutDownloadUrl?: string;
   showProviderStats?: boolean;
+  isOnboardingEnabled?: boolean;
 }
 
 export interface Provider {
@@ -166,6 +167,7 @@ export interface Booking {
   rejectionReason: string;
   timestamp: number;
   completedAt: number;
+  isEmergency?: boolean;
 }
 
 export interface Chat {

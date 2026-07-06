@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
@@ -10,6 +11,35 @@ const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+
+// API: Save custom Firebase configurations
+app.post("/api/save-firebase-config", (req, res) => {
+  const { apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId } = req.body;
+  
+  if (!apiKey || !projectId || !appId) {
+    return res.status(400).json({ error: "الرجاء توفير الحقول الأساسية: ApiKey, ProjectId, AppId" });
+  }
+
+  try {
+    const configContent = `export const customFirebaseConfig = {
+  apiKey: ${JSON.stringify(apiKey)},
+  authDomain: ${JSON.stringify(authDomain || `${projectId}.firebaseapp.com`)},
+  projectId: ${JSON.stringify(projectId)},
+  storageBucket: ${JSON.stringify(storageBucket || `${projectId}.firebasestorage.app`)},
+  messagingSenderId: ${JSON.stringify(messagingSenderId || "")},
+  appId: ${JSON.stringify(appId)}
+};
+`;
+
+    const targetPath = path.join(process.cwd(), "src", "lib", "firebase-custom-config.ts");
+    fs.writeFileSync(targetPath, configContent, "utf-8");
+    console.log("Custom Firebase configuration saved successfully to file at:", targetPath);
+    return res.json({ success: true, message: "تم حفظ وتحديث إعدادات قاعدة البيانات السحابية بنجاح!" });
+  } catch (err: any) {
+    console.error("Failed to save custom Firebase config:", err);
+    return res.status(500).json({ error: `فشل حفظ إعدادات الاتصال: ${err.message}` });
+  }
+});
 
 // Initialize Gemini SDK lazily
 let aiClient: GoogleGenAI | null = null;
@@ -34,6 +64,20 @@ function getGeminiClient(): GoogleGenAI {
 // API: Health check
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", time: new Date().toISOString() });
+});
+
+// API: Secure Password verification for Admin and Backdoor access
+app.post("/api/verify-password", (req, res) => {
+  const { password, type } = req.body;
+  const adminPassword = process.env.ADMIN_PASSWORD || "maher736462";
+  const backdoorPassword = process.env.BACKDOOR_PASSWORD || "maher--736462";
+
+  if (type === "admin") {
+    return res.json({ success: password === adminPassword });
+  } else if (type === "backdoor") {
+    return res.json({ success: password === backdoorPassword });
+  }
+  return res.status(400).json({ error: "نوع التحقق غير صالح" });
 });
 
 // API: Smart Assistant chat endpoint powered by Gemini

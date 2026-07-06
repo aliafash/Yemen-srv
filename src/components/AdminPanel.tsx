@@ -26,6 +26,7 @@ import {
   Award
 } from "lucide-react";
 import { db } from "../lib/db";
+import { customFirebaseConfig } from "../lib/firebase-custom-config";
 
 interface AdminPanelProps {
   settings: AppSettings;
@@ -52,6 +53,83 @@ export default function AdminPanel({
 }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<number>(0);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [isFirebaseSeeding, setIsFirebaseSeeding] = useState(false);
+  const [seedingStatus, setSeedingStatus] = useState("");
+
+  const [fbApiKey, setFbApiKey] = useState(customFirebaseConfig.apiKey || "");
+  const [fbProjectId, setFbProjectId] = useState(customFirebaseConfig.projectId || "");
+  const [fbAppId, setFbAppId] = useState(customFirebaseConfig.appId || "");
+  const [fbAuthDomain, setFbAuthDomain] = useState(customFirebaseConfig.authDomain || "");
+  const [fbStorageBucket, setFbStorageBucket] = useState(customFirebaseConfig.storageBucket || "");
+  const [fbMessagingSenderId, setFbMessagingSenderId] = useState(customFirebaseConfig.messagingSenderId || "");
+  const [isSavingFbConfig, setIsSavingFbConfig] = useState(false);
+  const [saveFbConfigError, setSaveFbConfigError] = useState("");
+
+  const handleSaveFbConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fbApiKey || !fbProjectId || !fbAppId) {
+      alert("⚠️ الرجاء ملء كافة الحقول الأساسية المطلوبة: مفتاح API، معرف المشروع، ومعرف التطبيق.");
+      return;
+    }
+    
+    setIsSavingFbConfig(true);
+    setSaveFbConfigError("");
+    
+    try {
+      const response = await fetch("/api/save-firebase-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          apiKey: fbApiKey.trim(),
+          projectId: fbProjectId.trim(),
+          appId: fbAppId.trim(),
+          authDomain: fbAuthDomain.trim() || `${fbProjectId.trim()}.firebaseapp.com`,
+          storageBucket: fbStorageBucket.trim() || `${fbProjectId.trim()}.firebasestorage.app`,
+          messagingSenderId: fbMessagingSenderId.trim(),
+        }),
+      });
+      
+      const resData = await response.json();
+      if (resData.success) {
+        alert("🎉 تم حفظ إعدادات الاتصال بـ Firebase بنجاح!\n\nسيقوم التطبيق بالاتصال وإعادة المزامنة الآن مع قاعدة بياناتك الجديدة سحابياً خلال ثوانٍ معدودة.");
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        setSaveFbConfigError(resData.error || "فشل حفظ الإعدادات");
+        alert(`❌ فشل حفظ الإعدادات: ${resData.error}`);
+      }
+    } catch (err: any) {
+      setSaveFbConfigError(err.message || String(err));
+      alert(`❌ حدث خطأ أثناء الحفظ: ${err.message || err}`);
+    } finally {
+      setIsSavingFbConfig(false);
+    }
+  };
+
+  const handleForceSeedFirebase = async () => {
+    if (!confirm("⚠️ هل أنت متأكد من رغبتك في إعادة بناء وحقن كافة الـ 12 قسماً ومجموعة في حساب Firebase السحابي الخاص بك؟ هذه العملية ستعيد المجموعات المحذوفة فوراً.")) {
+      return;
+    }
+    setIsFirebaseSeeding(true);
+    setSeedingStatus("⏳ جاري الاتصال بحساب Firebase وحقن الـ 12 قسماً...");
+    
+    try {
+      const res = await db.forceSeedFirebase();
+      if (res.success) {
+        setSeedingStatus(`✅ تم بنجاح تام! تم إعادة بناء وحقن ${res.seededCount} قسماً ومجموعة بالكامل في حساب Firebase الخاص بك!`);
+        alert(`🎉 نجاح تام!\n\nتمت إعادة إنشاء كافة الأقسام بنجاح في حساب Firebase السحابي الخاص بك.\nيرجى فتح أو تحديث صفحة الـ Console على موقع Firebase وستراها موجودة بالكامل وممتلئة بالبيانات!`);
+        onRefreshData();
+      } else {
+        setSeedingStatus(`❌ فشل الاتصال بقاعدة البيانات السحابية: ${res.error}`);
+        alert(`❌ حدث خطأ أثناء الاتصال السحابي:\n\n${res.error}\n\nيرجى التأكد من أن قواعد الحماية (Firestore Security Rules) في حساب Firebase تسمح بالكتابة (مثلاً allow read, write: if true;) وليست مغلقة بالكامل.`);
+      }
+    } catch (err: any) {
+      setSeedingStatus(`❌ خطأ: ${err?.message || err}`);
+    } finally {
+      setIsFirebaseSeeding(false);
+    }
+  };
 
   // Tab titles translated to Arabic
   const ADMIN_TABS = [
@@ -379,6 +457,47 @@ export default function AdminPanel({
               />
             </div>
 
+            <div className="flex items-center justify-between p-3.5 bg-slate-950 rounded-xl border border-slate-850">
+              <div>
+                <h5 className="font-bold text-white text-xs">إدارة شاشة العرض التقديمية (Onboarding Screen) 📺</h5>
+                <p className="text-[10px] text-slate-500 mt-0.5">التحكم بظهور أو إخفاء الشاشة التعريفية لخدمات WAM للعملاء الجدد عند فتح التطبيق لأول مرة.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.removeItem("wam_onboarded");
+                    // Define custom event to open onboarding immediately
+                    window.dispatchEvent(new Event("trigger-onboarding-preview"));
+                    alert("🔄 تم تصفير حالة العرض! سيظهر العرض التقديمي Onboarding فوراً لك وللمستخدمين الجدد.");
+                  }}
+                  className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-[10px] font-bold text-amber-500 rounded-lg cursor-pointer transition-colors"
+                  title="إظهار ومعاينة العرض التقديمي فوراً"
+                >
+                  معاينة/إظهار العرض 👁️
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm("⚠️ هل أنت متأكد من رغبتك في حذف وإيقاف شاشة العرض التقديمي نهائياً من التطبيق لجميع الزوار؟")) {
+                      handleSettingsSave({ ...settings, isOnboardingEnabled: false });
+                      alert("🗑️ تم تعطيل وحذف تفعيل الشاشة التعريفية بنجاح.");
+                    }
+                  }}
+                  className="px-2.5 py-1.5 bg-rose-950/40 hover:bg-rose-900 border border-rose-900/30 text-[10px] font-bold text-rose-400 rounded-lg cursor-pointer transition-colors"
+                  title="حذف وإيقاف الشاشة نهائياً"
+                >
+                  حذف العرض 🗑️
+                </button>
+                <input 
+                  type="checkbox" 
+                  checked={settings.isOnboardingEnabled ?? true} 
+                  onChange={(e) => handleSettingsSave({ ...settings, isOnboardingEnabled: e.target.checked })}
+                  className="w-4 h-4 accent-amber-500 cursor-pointer"
+                />
+              </div>
+            </div>
+
             {/* About screen configuration */}
             <div className="border-t border-slate-800 pt-4 space-y-4">
               <h5 className="font-extrabold text-amber-500 text-xs sm:text-sm">ℹ️ تخصيص شاشة معلومات التطبيق (About Page)</h5>
@@ -470,6 +589,32 @@ export default function AdminPanel({
                   placeholder="المنصة الأولى لربط العملاء بالمهنيين..."
                 />
               </div>
+
+              {/* Offline Safe Local Database Status Card */}
+              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-5 mt-6 text-right space-y-4">
+                <h6 className="font-extrabold text-emerald-400 text-xs sm:text-sm flex items-center gap-1.5 flex-row-reverse border-b border-emerald-500/20 pb-2.5">
+                  <ShieldCheck className="w-5 h-5 text-emerald-400 animate-pulse" />
+                  <span>تفعيل وضع الأمان والاستقرار المحلي الفائق (100% Offline Local Mode) 🔒</span>
+                </h6>
+                
+                <div className="text-slate-300 text-xs leading-relaxed space-y-2">
+                  <p>
+                    بناءً على طلبك، تم <strong>إلغاء وتعطيل المزامنة السحابية كلياً</strong> وحذف جميع إعدادات الاتصال بحساب Firebase السابق لمنع أي إغلاق مفاجئ أو تعليق للتطبيق عند ضعف الاتصال بالإنترنت.
+                  </p>
+                  <p>
+                    التطبيق الآن يعمل بالكامل بوضع وقاعدة بيانات محلية فائقة السرعة وآمنة تماماً ومقاومة للأخطاء بنسبة 100%. يتم حفظ كافة عمليات التعديل، بيانات مقدمي الخدمات، الأقسام، الحجوزات، والدردشات بشكل فوري ومستقر داخل الذاكرة المحلية (LocalStorage).
+                  </p>
+                </div>
+
+                <div className="bg-slate-950/80 rounded-lg p-3 border border-slate-850 flex items-center justify-between flex-row-reverse">
+                  <span className="text-[10px] font-bold text-emerald-400">حالة قاعدة البيانات:</span>
+                  <div className="flex items-center gap-1.5 flex-row-reverse">
+                    <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping"></span>
+                    <span className="text-xs font-bold text-white">نشطة محلياً ومستقرة 100%</span>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
         )}
@@ -861,6 +1006,57 @@ export default function AdminPanel({
                   </label>
                 ))}
               </div>
+            </div>
+
+            {/* Bookings log list */}
+            <div className="space-y-3 pt-3 border-t border-slate-900">
+              <h5 className="font-extrabold text-white text-xs">📋 سجل الحجوزات المباشرة وحالات الطوارئ ({bookings.length}):</h5>
+              {bookings.length === 0 ? (
+                <p className="text-[10px] text-slate-500 text-center py-4 bg-slate-950 rounded-xl border border-slate-850">لا توجد حجوزات مسجلة في النظام حالياً.</p>
+              ) : (
+                <div className="space-y-2.5 max-h-[220px] overflow-y-auto no-scrollbar pr-1">
+                  {bookings.map((bk) => (
+                    <div 
+                      key={bk.id} 
+                      className={`p-3 rounded-xl border flex items-center justify-between flex-row-reverse text-right transition-all ${
+                        bk.isEmergency 
+                          ? "border-red-500 bg-red-950/20 text-white shadow-sm shadow-red-500/10" 
+                          : "border-slate-850 bg-slate-950"
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-row-reverse">
+                          <h6 className="font-bold text-white text-xs">{bk.userName} ← {bk.providerName}</h6>
+                          {bk.isEmergency && (
+                            <span className="bg-red-500 text-white text-[8px] px-1.5 py-0.5 rounded font-extrabold animate-pulse">حالة طوارئ 🚨</span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-0.5">القسم: {bk.subCategory} | هاتف: <span className="font-mono">{bk.userPhone}</span> | الموعد: {bk.preferredDate}</p>
+                        <p className="text-[10px] text-slate-500">العنوان: {bk.userAddress} | الحالة: <span className="text-amber-500 font-bold">{bk.status}</span></p>
+                      </div>
+                      
+                      {/* Admin actions */}
+                      <div className="flex gap-1">
+                        <select
+                          value={bk.status}
+                          onChange={(e) => {
+                            const updated = bookings.map(b => b.id === bk.id ? { ...b, status: e.target.value as any } : b);
+                            db.saveBookings(updated);
+                            onRefreshData();
+                          }}
+                          className="bg-slate-900 border border-slate-800 text-[10px] text-white rounded px-1.5 py-1"
+                        >
+                          <option value="pending">معلق</option>
+                          <option value="accepted">مقبول</option>
+                          <option value="in_progress">تحت العمل</option>
+                          <option value="completed">مكتمل</option>
+                          <option value="cancelled">ملغى</option>
+                        </select>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

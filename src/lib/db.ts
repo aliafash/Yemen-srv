@@ -21,6 +21,7 @@ import {
 import { firestore } from "./firebase";
 
 
+
 // Default Palette Presets
 const DEFAULT_PRESETS: PresetPalette[] = [
   { name: "🪐 كوزميك سيلفر", primaryHex: "#4B5563", accentHex: "#9CA3AF", bgHex: "#111827", surfaceHex: "#1F2937" },
@@ -170,6 +171,7 @@ class ReactiveDB {
   constructor() {
     this.initDatabase();
     this.initFirestoreSync();
+    this.seedFirestoreIfEmpty();
   }
 
   private initDatabase() {
@@ -181,15 +183,6 @@ class ReactiveDB {
     }
     if (!localStorage.getItem("wam_providers")) {
       localStorage.setItem("wam_providers", JSON.stringify(SEED_PROVIDERS));
-    } else {
-      // Purge mock/fake providers from localStorage
-      const mockPhones = ["777123456", "733987654", "711223344", "777556677", "777112233"];
-      try {
-        const raw = localStorage.getItem("wam_providers");
-        const current = raw ? JSON.parse(raw) : [];
-        const filtered = current.filter((p: any) => !mockPhones.includes(p.phone));
-        localStorage.setItem("wam_providers", JSON.stringify(filtered));
-      } catch (e) {}
     }
     if (!localStorage.getItem("wam_pending_providers")) {
       localStorage.setItem("wam_pending_providers", JSON.stringify([]));
@@ -229,91 +222,188 @@ class ReactiveDB {
     }
   }
 
-  // Real-time synchronization with Firestore
+  // Real-time synchronization with Firestore (Fully active with yemenimaw)
   private initFirestoreSync() {
-    try {
-      console.log("Initializing WAM Firebase Firestore Realtime Sync...");
+    if (!firestore) {
+      console.log("Firestore is not initialized. Running in local-only offline mode.");
+      return;
+    }
 
-      // Automatically purge all mock/fake providers from Firestore to clean the database completely
-      const mockProviderIds = [
-        "prov_777123456",
-        "prov_733987654",
-        "prov_711223344",
-        "prov_777556677",
-        "prov_777112233"
-      ];
-      mockProviderIds.forEach((mId) => {
-        deleteDoc(doc(firestore, "providers", mId)).catch((err) => {
-          console.error(`Error purging mock provider ${mId} from Firestore:`, err);
-        });
-      });
+    console.log("Initializing real-time Firestore synchronization with project yemenimaw...");
 
-      // 1. Sync AppSettings
-      onSnapshot(doc(firestore, "settings", "GLOBAL_SETTINGS"), (snapshot) => {
-        if (snapshot.exists()) {
-          const settingsData = snapshot.data() as AppSettings;
-          localStorage.setItem("wam_settings", JSON.stringify(settingsData));
-          this.notify("settings");
-        } else {
-          // If Firestore settings do not exist yet, seed them from local storage
-          const localSettings = this.getSettings();
-          setDoc(doc(firestore, "settings", "GLOBAL_SETTINGS"), localSettings);
-        }
-      }, (error) => {
-        console.error("Firestore settings snapshot error:", error);
-      });
+    const collectionsToSync = [
+      "categories",
+      "providers",
+      "pending_providers",
+      "bookings",
+      "chats",
+      "messages",
+      "notifications",
+      "banners",
+      "faqs",
+      "users",
+      "reviews"
+    ];
 
-      // 2. Sync all other collections
-      const collectionsToSync = [
-        "categories",
-        "providers",
-        "pending_providers",
-        "bookings",
-        "chats",
-        "messages",
-        "notifications",
-        "banners",
-        "faqs",
-        "users"
-      ];
-
-      collectionsToSync.forEach((colName) => {
-        onSnapshot(fsCollection(firestore, colName), (snapshot) => {
-          if (snapshot.empty) {
-            // Seed Firestore with local/default data if it's currently empty
-            const localData = this.getCollection(colName);
-            if (localData && localData.length > 0) {
-              console.log(`Seeding empty Firestore collection '${colName}' with local data...`);
-              localData.forEach((item: any) => {
-                const docId = item.id || `doc_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-                setDoc(doc(firestore, colName, docId), item).catch(err => {
-                  console.error(`Error seeding document ${docId} to Firestore ${colName}:`, err);
-                });
-              });
-            }
-          } else {
+    collectionsToSync.forEach((colName) => {
+      try {
+        onSnapshot(
+          fsCollection(firestore, colName),
+          (snapshot) => {
             const items: any[] = [];
             snapshot.forEach((doc) => {
               items.push({ id: doc.id, ...doc.data() });
             });
-
-            // Maintain sorting to keep list orders consistent
-            items.sort((a, b) => {
-              if (a.timestamp && b.timestamp) return a.timestamp - b.timestamp;
-              if (a.id && b.id) return a.id.localeCompare(b.id);
-              return 0;
-            });
-
-            localStorage.setItem(`wam_${colName}`, JSON.stringify(items));
-            this.notify(colName);
+            
+            // Check if data is actually different to avoid infinite loop triggers
+            const localRaw = localStorage.getItem(`wam_${colName}`);
+            const localItems = localRaw ? JSON.parse(localRaw) : [];
+            
+            if (JSON.stringify(items) !== JSON.stringify(localItems)) {
+              localStorage.setItem(`wam_${colName}`, JSON.stringify(items));
+              this.notify(colName);
+            }
+          },
+          (error) => {
+            console.error(`Error syncing collection ${colName} from Firestore:`, error);
           }
-        }, (error) => {
-          console.error(`Firestore collection '${colName}' snapshot error:`, error);
-        });
-      });
+        );
+      } catch (err) {
+        console.error(`Failed to register snapshot listener for ${colName}:`, err);
+      }
+    });
 
-    } catch (e) {
-      console.error("Failed to initialize Firestore real-time sync:", e);
+    // Sync Settings document
+    try {
+      onSnapshot(
+        doc(firestore, "settings", "GLOBAL_SETTINGS"),
+        (snapshot) => {
+          if (snapshot.exists()) {
+            const settings = snapshot.data();
+            const localRaw = localStorage.getItem("wam_settings");
+            if (JSON.stringify(settings) !== localRaw) {
+              localStorage.setItem("wam_settings", JSON.stringify(settings));
+              this.notify("settings");
+            }
+          }
+        },
+        (error) => {
+          console.error("Error syncing settings from Firestore:", error);
+        }
+      );
+    } catch (err) {
+      console.error("Failed to register settings snapshot listener:", err);
+    }
+  }
+
+  // Safe, async, one-time Firestore database seeding on startup
+  private async seedFirestoreIfEmpty() {
+    if (!firestore) return;
+    try {
+      // Check if categories is empty
+      const snapshot = await getDocs(fsCollection(firestore, "categories"));
+      if (snapshot.empty) {
+        console.log("Firestore database is empty! Seeding default data to the new Firebase project...");
+        
+        // 1. settings
+        await setDoc(doc(firestore, "settings", "GLOBAL_SETTINGS"), DEFAULT_SETTINGS);
+
+        // 2. categories
+        for (const cat of SEED_CATEGORIES) {
+          await setDoc(doc(firestore, "categories", cat.id), cat);
+        }
+
+        // 3. banners
+        for (const banner of SEED_BANNERS) {
+          await setDoc(doc(firestore, "banners", banner.id), banner);
+        }
+
+        // 4. faqs
+        for (const faq of SEED_FAQS) {
+          const stableId = `faq_${faq.q.substring(0, 15).replace(/[^a-zA-Z0-9]/g, "_")}`;
+          await setDoc(doc(firestore, "faqs", stableId), faq);
+        }
+
+        // 5. notifications
+        for (const not of SEED_NOTIFICATIONS) {
+          await setDoc(doc(firestore, "notifications", not.id), not);
+        }
+
+        // 6. seed owner user
+        const ownerUser = {
+          id: "owner_wam2026",
+          name: "WAM2026",
+          phone: "777644",
+          area: "صنعاء",
+          role: "owner",
+          deviceId: "android_id_owner"
+        };
+        await setDoc(doc(firestore, "users", "owner_wam2026"), ownerUser);
+
+        console.log("Firestore successfully seeded with all initial data!");
+      } else {
+        console.log("Firestore already has data. Seeding skipped.");
+      }
+    } catch (err) {
+      console.error("Failed to seed Firestore:", err);
+    }
+  }
+ 
+  // Completely force rebuild and seed all collections
+  public async forceSeedFirebase(): Promise<{ success: boolean; error?: string; seededCount: number }> {
+    if (!firestore) {
+      return { success: false, error: "Firebase is not initialized", seededCount: 0 };
+    }
+    try {
+      console.log("Force seeding all collections to Firebase...");
+      let seededCount = 0;
+
+      // 1. settings
+      await setDoc(doc(firestore, "settings", "GLOBAL_SETTINGS"), DEFAULT_SETTINGS);
+      seededCount++;
+
+      // 2. categories
+      for (const cat of SEED_CATEGORIES) {
+        await setDoc(doc(firestore, "categories", cat.id), cat);
+      }
+      seededCount++;
+
+      // 3. banners
+      for (const banner of SEED_BANNERS) {
+        await setDoc(doc(firestore, "banners", banner.id), banner);
+      }
+      seededCount++;
+
+      // 4. faqs
+      for (const faq of SEED_FAQS) {
+        const stableId = `faq_${faq.q.substring(0, 15).replace(/[^a-zA-Z0-9]/g, "_")}`;
+        await setDoc(doc(firestore, "faqs", stableId), faq);
+      }
+      seededCount++;
+
+      // 5. notifications
+      for (const not of SEED_NOTIFICATIONS) {
+        await setDoc(doc(firestore, "notifications", not.id), not);
+      }
+      seededCount++;
+
+      // 6. seed owner user
+      const ownerUser = {
+        id: "owner_wam2026",
+        name: "WAM2026",
+        phone: "777644",
+        area: "صنعاء",
+        role: "owner",
+        deviceId: "android_id_owner"
+      };
+      await setDoc(doc(firestore, "users", "owner_wam2026"), ownerUser);
+      seededCount++;
+
+      console.log("Force seeding complete!");
+      return { success: true, seededCount };
+    } catch (err: any) {
+      console.error("Force seeding Firebase failed:", err);
+      return { success: false, error: err?.message || String(err), seededCount: 0 };
     }
   }
 
@@ -362,6 +452,8 @@ class ReactiveDB {
     localStorage.setItem(`wam_${colName}`, JSON.stringify(items));
     this.notify(colName);
 
+    if (!firestore) return;
+
     // 2. Upload/Update documents in Firestore
     const promises = items.map((item: any) => {
       const docId = item.id || `doc_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
@@ -401,6 +493,8 @@ class ReactiveDB {
   public async saveSettings(settings: AppSettings) {
     localStorage.setItem("wam_settings", JSON.stringify(settings));
     this.notify("settings");
+    
+    if (!firestore) return;
     try {
       await setDoc(doc(firestore, "settings", "GLOBAL_SETTINGS"), settings);
     } catch (err) {
@@ -509,35 +603,37 @@ class ReactiveDB {
       this.notify(collection);
     });
 
-    // Clean up Firestore settings and collections too
-    try {
-      await setDoc(doc(firestore, "settings", "GLOBAL_SETTINGS"), DEFAULT_SETTINGS);
-      
-      const collectionsToClear = [
-        "categories",
-        "providers",
-        "pending_providers",
-        "bookings",
-        "chats",
-        "messages",
-        "notifications",
-        "banners",
-        "faqs",
-        "users"
-      ];
+    if (firestore) {
+      try {
+        await setDoc(doc(firestore, "settings", "GLOBAL_SETTINGS"), DEFAULT_SETTINGS);
+        
+        const collectionsToClear = [
+          "categories",
+          "providers",
+          "pending_providers",
+          "bookings",
+          "chats",
+          "messages",
+          "notifications",
+          "banners",
+          "faqs",
+          "users",
+          "reviews"
+        ];
 
-      for (const colName of collectionsToClear) {
-        const snapshot = await getDocs(fsCollection(firestore, colName));
-        const deletePromises: Promise<void>[] = [];
-        snapshot.forEach((doc) => {
-          deletePromises.push(deleteDoc(doc.ref));
-        });
-        if (deletePromises.length > 0) {
-          await Promise.all(deletePromises);
+        for (const colName of collectionsToClear) {
+          const snapshot = await getDocs(fsCollection(firestore, colName));
+          const deletePromises: Promise<void>[] = [];
+          snapshot.forEach((doc) => {
+            deletePromises.push(deleteDoc(doc.ref));
+          });
+          if (deletePromises.length > 0) {
+            await Promise.all(deletePromises);
+          }
         }
+      } catch (err) {
+        console.error("Error clearing Firestore data:", err);
       }
-    } catch (err) {
-      console.error("Error clearing Firestore data:", err);
     }
   }
 }

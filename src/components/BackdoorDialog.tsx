@@ -27,17 +27,38 @@ export default function BackdoorDialog({
   const [supportPhone, setSupportPhone] = useState(settings.supportPhone);
   const [supportWhatsapp, setSupportWhatsapp] = useState(settings.supportWhatsapp);
   const [footerText, setFooterText] = useState(settings.footerText);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [adminPassword, setAdminPassword] = useState(settings.adminPassword || "maher736462");
 
   if (!isOpen) return null;
 
-  const handleVerify = (e: React.FormEvent) => {
+  const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === (settings.backdoorPassword || "maher--736462")) {
-      setIsAuthorized(true);
-      setError("");
-    } else {
-      setError("❌ كلمة مرور البوابة الخلفية غير صحيحة!");
+    setIsVerifying(true);
+    setError("");
+    try {
+      const res = await fetch("/api/verify-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, type: "backdoor" })
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        setIsAuthorized(true);
+        setError("");
+      } else {
+        setError("❌ كلمة مرور البوابة الخلفية غير صحيحة!");
+      }
+    } catch (err) {
+      // Client-side fallback for offline or development
+      if (password === (settings.backdoorPassword || "maher--736462")) {
+        setIsAuthorized(true);
+        setError("");
+      } else {
+        setError("❌ كلمة مرور البوابة الخلفية غير صحيحة!");
+      }
+    } finally {
+      setIsVerifying(false);
     }
   };
 

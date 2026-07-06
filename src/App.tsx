@@ -51,10 +51,12 @@ import BackdoorDialog from "./components/BackdoorDialog";
 import NotificationCenter from "./components/NotificationCenter";
 import AdminPanel from "./components/AdminPanel";
 import UserProfileDialog from "./components/UserProfileDialog";
+import Onboarding from "./components/Onboarding";
 
 export default function App() {
   // Reactive Database States
   const [settings, setSettings] = useState<AppSettings>(db.getSettings());
+  const [categories, setCategories] = useState<any[]>(db.getCategories());
   const [providers, setProviders] = useState<Provider[]>([]);
   const [pendingProviders, setPendingProviders] = useState<PendingProvider[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -84,18 +86,38 @@ export default function App() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
+  // Role switcher password verification states
+  const [showRolePasswordModal, setShowRolePasswordModal] = useState(false);
+  const [pendingRoleToSwitch, setPendingRoleToSwitch] = useState<string | null>(null);
+  const [rolePasswordInput, setRolePasswordInput] = useState("");
+  const [rolePasswordError, setRolePasswordError] = useState("");
+  const [isRoleVerifying, setIsRoleVerifying] = useState(false);
+  const [showPasswordChar, setShowPasswordChar] = useState(false);
+
   // Secret Easter Egg click counter
   const [homeClickCount, setHomeClickCount] = useState(0);
 
   // Simulation current user role switching (For preview testing)
-  const [currentUser, setCurrentUser] = useState<User>({
-    id: "guest_visitor",
-    name: "زائر مجهول",
-    phone: "777000000",
-    area: "صنعاء",
-    role: "visitor",
-    deviceId: "web_device_visitor"
+  const [currentUser, setCurrentUser] = useState<User>(() => {
+    const raw = localStorage.getItem("wam_current_user");
+    if (raw) {
+      try {
+        return JSON.parse(raw);
+      } catch (e) {}
+    }
+    return {
+      id: "guest_visitor",
+      name: "زائر مجهول",
+      phone: "777000000",
+      area: "صنعاء",
+      role: "visitor",
+      deviceId: "web_device_visitor"
+    };
   });
+
+  useEffect(() => {
+    localStorage.setItem("wam_current_user", JSON.stringify(currentUser));
+  }, [currentUser]);
 
   // Keep track of the bookings list to detect state changes in real-time
   const [prevBookings, setPrevBookings] = useState<Booking[]>([]);
@@ -125,6 +147,7 @@ export default function App() {
   // Database Snapshot Synchronization
   useEffect(() => {
     const unsubSettings = db.subscribe("settings", (data) => setSettings(data));
+    const unsubCategories = db.subscribe("categories", (data) => setCategories(data));
     const unsubProviders = db.subscribe("providers", (data) => setProviders(data));
     const unsubPending = db.subscribe("pending_providers", (data) => setPendingProviders(data));
     const unsubBookings = db.subscribe("bookings", (data) => setBookings(data));
@@ -135,6 +158,7 @@ export default function App() {
 
     return () => {
       unsubSettings();
+      unsubCategories();
       unsubProviders();
       unsubPending();
       unsubBookings();
@@ -142,6 +166,28 @@ export default function App() {
       unsubMessages();
       unsubNotifs();
       unsubUsers();
+    };
+  }, []);
+
+  // Onboarding Screen State & Trigger effects
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+
+  useEffect(() => {
+    // Check if user has already onboarded, and if onboarding is enabled in settings
+    const hasOnboarded = localStorage.getItem("wam_onboarded");
+    if (!hasOnboarded && settings.isOnboardingEnabled !== false) {
+      setOnboardingOpen(true);
+    }
+  }, [settings.isOnboardingEnabled]);
+
+  useEffect(() => {
+    // Listen to admin panel manual trigger events
+    const handlePreview = () => {
+      setOnboardingOpen(true);
+    };
+    window.addEventListener("trigger-onboarding-preview", handlePreview);
+    return () => {
+      window.removeEventListener("trigger-onboarding-preview", handlePreview);
     };
   }, []);
 
@@ -173,6 +219,132 @@ export default function App() {
     const updated = updatedProviders.find(p => p.id === providerId);
     if (updated) {
       setSelectedProvider(updated);
+    }
+  };
+
+  const handleRoleChangeAttempt = (role: string) => {
+    if (role === "admin" || role === "provider" || role === "supervisor") {
+      setPendingRoleToSwitch(role);
+      setRolePasswordInput("");
+      setRolePasswordError("");
+      setShowRolePasswordModal(true);
+    } else {
+      let u: User = { id: "guest_visitor", name: "زائر مجهول", phone: "777000000", area: "صنعاء", role: "visitor", deviceId: "web_device_visitor" };
+      if (role === "user") {
+        u = { id: "user_saeed", name: "أ. سعيد القحطاني", phone: "771222333", area: "صنعاء", role: "user", deviceId: "web_saeed" };
+      }
+      
+      const currentUsers = db.getUsers();
+      const savedUser = currentUsers.find(user => user.id === u.id);
+      if (savedUser) {
+        u = savedUser;
+      } else {
+        db.saveUsers([...currentUsers, u]);
+      }
+
+      setCurrentUser(u);
+      setActiveTab("home");
+    }
+  };
+
+  const handleVerifyRolePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pendingRoleToSwitch) return;
+
+    setIsRoleVerifying(true);
+    setRolePasswordError("");
+
+    try {
+      const type = pendingRoleToSwitch === "admin" ? "admin" : "backdoor";
+      const res = await fetch("/api/verify-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: rolePasswordInput, type })
+      });
+      const data = await res.json();
+      
+      let isSuccess = data && data.success;
+
+      // Local fallback in case of offline/network issues or custom settings passwords
+      if (!isSuccess) {
+        if (pendingRoleToSwitch === "admin") {
+          isSuccess = rolePasswordInput === (settings.adminPassword || "maher736462");
+        } else if (pendingRoleToSwitch === "supervisor") {
+          isSuccess = rolePasswordInput === (settings.adminPassword || "maher736462") || 
+                      rolePasswordInput === (settings.backdoorPassword || "maher--736462");
+        } else if (pendingRoleToSwitch === "provider") {
+          isSuccess = rolePasswordInput === (settings.backdoorPassword || "maher--736462") ||
+                      rolePasswordInput === (settings.adminPassword || "maher736462");
+        }
+      }
+
+      if (isSuccess) {
+        let u: User;
+        if (pendingRoleToSwitch === "admin") {
+          u = { id: "admin_maher", name: "WAM2026 (المدير الرئيسي)", phone: "777644", area: "صنعاء", role: "admin", deviceId: "web_maher" };
+        } else if (pendingRoleToSwitch === "supervisor") {
+          u = { id: "supervisor_wam", name: "مشرف بوابة WAM", phone: "777644", area: "صنعاء", role: "supervisor", deviceId: "web_supervisor" };
+        } else {
+          u = { id: "prov_777123456", name: "م. ماجد صلاح الصنعاني", phone: "777123456", area: "حدة", role: "provider", deviceId: "web_majed" };
+        }
+
+        const currentUsers = db.getUsers();
+        const savedUser = currentUsers.find(user => user.id === u.id);
+        if (savedUser) {
+          u = savedUser;
+        } else {
+          db.saveUsers([...currentUsers, u]);
+        }
+
+        setCurrentUser(u);
+        setShowRolePasswordModal(false);
+        setPendingRoleToSwitch(null);
+        setRolePasswordInput("");
+        alert(`🔓 تم تسجيل الدخول بنجاح بصلاحية: [${u.name}]`);
+      } else {
+        setRolePasswordError("❌ كلمة المرور المدخلة غير صحيحة!");
+      }
+    } catch (err) {
+      // Local fallback when offline
+      let isSuccess = false;
+      if (pendingRoleToSwitch === "admin") {
+        isSuccess = rolePasswordInput === (settings.adminPassword || "maher736462");
+      } else if (pendingRoleToSwitch === "supervisor") {
+        isSuccess = rolePasswordInput === (settings.adminPassword || "maher736462") || 
+                    rolePasswordInput === (settings.backdoorPassword || "maher--736462");
+      } else if (pendingRoleToSwitch === "provider") {
+        isSuccess = rolePasswordInput === (settings.backdoorPassword || "maher--736462") ||
+                    rolePasswordInput === (settings.adminPassword || "maher736462");
+      }
+
+      if (isSuccess) {
+        let u: User;
+        if (pendingRoleToSwitch === "admin") {
+          u = { id: "admin_maher", name: "WAM2026 (المدير الرئيسي)", phone: "777644", area: "صنعاء", role: "admin", deviceId: "web_maher" };
+        } else if (pendingRoleToSwitch === "supervisor") {
+          u = { id: "supervisor_wam", name: "مشرف بوابة WAM", phone: "777644", area: "صنعاء", role: "supervisor", deviceId: "web_supervisor" };
+        } else {
+          u = { id: "prov_777123456", name: "م. ماجد صلاح الصنعاني", phone: "777123456", area: "حدة", role: "provider", deviceId: "web_majed" };
+        }
+
+        const currentUsers = db.getUsers();
+        const savedUser = currentUsers.find(user => user.id === u.id);
+        if (savedUser) {
+          u = savedUser;
+        } else {
+          db.saveUsers([...currentUsers, u]);
+        }
+
+        setCurrentUser(u);
+        setShowRolePasswordModal(false);
+        setPendingRoleToSwitch(null);
+        setRolePasswordInput("");
+        alert(`🔓 تم تسجيل الدخول بنجاح بصلاحية: [${u.name}]`);
+      } else {
+        setRolePasswordError("❌ كلمة المرور المدخلة غير صحيحة!");
+      }
+    } finally {
+      setIsRoleVerifying(false);
     }
   };
 
@@ -223,7 +395,8 @@ export default function App() {
     details: "",
     date: "",
     time: "",
-    notes: ""
+    notes: "",
+    isEmergency: false
   });
   const [bookingSuccess, setBookingSuccess] = useState(false);
 
@@ -255,7 +428,8 @@ export default function App() {
       assignedTo: `prov_${bookingProvider.phone}`,
       rejectionReason: "",
       timestamp: Date.now(),
-      completedAt: 0
+      completedAt: 0,
+      isEmergency: bookingForm.isEmergency
     };
 
     const currentBookings = db.getBookings();
@@ -311,7 +485,8 @@ export default function App() {
       details: "",
       date: "",
       time: "",
-      notes: ""
+      notes: "",
+      isEmergency: false
     });
     setBookingSuccess(true);
     setTimeout(() => {
@@ -353,7 +528,7 @@ export default function App() {
   };
 
   // Set the preloaded categories
-  const preloadedCategories = db.getCategories();
+  const preloadedCategories = categories;
 
   return (
     <div 
@@ -442,35 +617,13 @@ export default function App() {
               <span className="text-[9px] text-slate-500 font-bold">الحساب:</span>
               <select
                 value={currentUser.role}
-                onChange={(e) => {
-                  const role = e.target.value;
-                  let u: User = { id: "guest_visitor", name: "زائر مجهول", phone: "777000000", area: "صنعاء", role: "visitor", deviceId: "web_device_visitor" };
-                  
-                  if (role === "user") {
-                    u = { id: "user_saeed", name: "أ. سعيد القحطاني", phone: "771222333", area: "صنعاء", role: "user", deviceId: "web_saeed" };
-                  } else if (role === "provider") {
-                    u = { id: "prov_777123456", name: "م. ماجد صلاح الصنعاني", phone: "777123456", area: "حدة", role: "provider", deviceId: "web_majed" };
-                  } else if (role === "admin") {
-                    u = { id: "admin_maher", name: "WAM2026 (المدير الرئيسي)", phone: "777644", area: "صنعاء", role: "admin", deviceId: "web_maher" };
-                  }
-                  
-                  // Persistent user check to keep favorites and data intact
-                  const currentUsers = db.getUsers();
-                  const savedUser = currentUsers.find(user => user.id === u.id);
-                  if (savedUser) {
-                    u = savedUser;
-                  } else {
-                    db.saveUsers([...currentUsers, u]);
-                  }
-
-                  setCurrentUser(u);
-                  alert(`🔄 تم محاكاة دخول سريع بصلاحية: [${u.name} - ${role}]`);
-                }}
+                onChange={(e) => handleRoleChangeAttempt(e.target.value)}
                 className="bg-transparent border-0 text-[10px] font-bold text-amber-500 focus:outline-none cursor-pointer"
               >
                 <option value="visitor" className="bg-slate-950 text-white">زائر (Visitor)</option>
                 <option value="user" className="bg-slate-950 text-white">عميل مسجل (User)</option>
                 <option value="provider" className="bg-slate-950 text-white">فني معتمد (Provider)</option>
+                <option value="supervisor" className="bg-slate-950 text-white">مشرف البوابة (Supervisor)</option>
                 <option value="admin" className="bg-slate-950 text-white">المدير العام (Admin)</option>
               </select>
             </div>
@@ -834,7 +987,22 @@ export default function App() {
                       onChange={(e) => setBookingForm({ ...bookingForm, details: e.target.value })}
                       rows={2}
                       placeholder="مثال: أريد إصلاح عطل في لوحة التوزيع وتمديد لمبة في المطبخ..."
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white text-right leading-relaxed"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white text-right leading-relaxed animate-none"
+                    />
+                  </div>
+
+                  {/* Emergency checkbox */}
+                  <div className="flex items-center justify-between p-3.5 bg-rose-950/20 border border-rose-900/30 rounded-xl select-none">
+                    <div className="text-right">
+                      <label className="block text-rose-400 text-xs font-extrabold cursor-pointer" htmlFor="emergency-check">⚠️ تحديد كحالة طوارئ عاجلة جداً</label>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">تنبيه الفني وحضور فوري سريع وتلوين الحجز بالأحمر في اللوحات.</span>
+                    </div>
+                    <input
+                      id="emergency-check"
+                      type="checkbox"
+                      checked={bookingForm.isEmergency || false}
+                      onChange={(e) => setBookingForm({ ...bookingForm, isEmergency: e.target.checked })}
+                      className="w-4.5 h-4.5 accent-rose-500 cursor-pointer shrink-0"
                     />
                   </div>
 
@@ -1031,6 +1199,93 @@ export default function App() {
         onToggleFavorite={handleToggleFavorite}
         onSelectProvider={(p) => setSelectedProvider(p)}
       />
+
+      <Onboarding
+        isOpen={onboardingOpen}
+        onClose={() => setOnboardingOpen(false)}
+        settings={settings}
+      />
+
+      {/* Secure Role Switcher Password Modal */}
+      {showRolePasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-sm w-full text-right shadow-2xl relative">
+            <h3 className="font-extrabold text-white text-sm mb-2 flex items-center justify-between flex-row-reverse gap-2">
+              <span className="flex items-center gap-1.5 flex-row-reverse">
+                <ShieldCheck className="w-5 h-5 text-amber-500" />
+                <span>التحقق من الهوية والصلاحية</span>
+              </span>
+              <button 
+                onClick={() => {
+                  setShowRolePasswordModal(false);
+                  setPendingRoleToSwitch(null);
+                }} 
+                className="text-slate-500 hover:text-white p-1 hover:bg-slate-850 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </h3>
+            
+            <p className="text-slate-400 text-xs mb-4 leading-relaxed">
+              يرجى إدخال كلمة المرور الخاصة بحساب {" "}
+              <span className="text-amber-500 font-bold">
+                {pendingRoleToSwitch === "admin" ? "المدير العام (Admin)" : 
+                 pendingRoleToSwitch === "supervisor" ? "المشرف (Supervisor)" : "مقدم الخدمة (Provider)"}
+              </span>{" "}
+              للمتابعة وتفعيل الصلاحية الأمنية المطلوبة.
+            </p>
+
+            <form onSubmit={handleVerifyRolePassword} className="space-y-4">
+              <div className="relative">
+                <input
+                  type={showPasswordChar ? "text" : "password"}
+                  placeholder="كلمة المرور الأمنية"
+                  value={rolePasswordInput}
+                  onChange={(e) => setRolePasswordInput(e.target.value)}
+                  disabled={isRoleVerifying}
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl px-4 py-2.5 text-xs text-white text-right font-mono"
+                  autoFocus
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordChar(!showPasswordChar)}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 hover:text-slate-300"
+                >
+                  {showPasswordChar ? "إخفاء" : "إظهار"}
+                </button>
+              </div>
+
+              {rolePasswordError && (
+                <p className="text-rose-500 text-[10px] font-bold text-right">{rolePasswordError}</p>
+              )}
+
+              <div className="flex gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRolePasswordModal(false);
+                    setPendingRoleToSwitch(null);
+                  }}
+                  disabled={isRoleVerifying}
+                  className="flex-1 py-2 bg-slate-950 hover:bg-slate-850 border border-slate-850 text-slate-400 hover:text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  disabled={isRoleVerifying}
+                  className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-black text-xs font-extrabold rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
+                >
+                  {isRoleVerifying ? (
+                    <span className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin"></span>
+                  ) : "تأكيد الدخول"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* 8. HUMBLE LITERAL FOOTER */}
       {settings.footerVisible && (

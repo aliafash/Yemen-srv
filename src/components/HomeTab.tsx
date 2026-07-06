@@ -13,9 +13,32 @@ import {
   Volume2, 
   HelpCircle,
   Clock,
-  Briefcase
+  Briefcase,
+  Home,
+  HeartPulse,
+  GraduationCap,
+  Cpu,
+  Truck
 } from "lucide-react";
 import ProviderCard from "./ProviderCard";
+
+const getCategoryIcon = (iconName: string) => {
+  switch (iconName) {
+    case "Home":
+      return Home;
+    case "HeartPulse":
+      return HeartPulse;
+    case "GraduationCap":
+      return GraduationCap;
+    case "Truck":
+      return Truck;
+    case "Cpu":
+      return Cpu;
+    case "Briefcase":
+    default:
+      return Briefcase;
+  }
+};
 
 interface HomeTabProps {
   providers: Provider[];
@@ -127,7 +150,8 @@ export default function HomeTab({
       p.area.toLowerCase().includes(searchQuery.toLowerCase());
 
     // Category matching
-    const matchesCategory = !selectedCategory || p.category === selectedCategory;
+    const matchesCategory = !selectedCategory || 
+      p.category.trim().toLowerCase() === selectedCategory.trim().toLowerCase();
 
     // City matching
     const matchesCity = selectedCity === "الكل" || p.city === selectedCity;
@@ -341,6 +365,7 @@ export default function HomeTab({
         <div className="flex gap-2.5 overflow-x-auto pb-2 flex-row-reverse no-scrollbar">
           {categories.map((cat) => {
             const isSelected = selectedCategory === cat.name;
+            const IconComponent = getCategoryIcon(cat.icon);
             return (
               <button
                 key={cat.id}
@@ -352,7 +377,7 @@ export default function HomeTab({
                 }`}
               >
                 <div className="p-2 rounded-xl bg-slate-950/30 mb-2">
-                  <Briefcase className={`w-5 h-5 ${isSelected ? "text-black" : "text-amber-500"}`} />
+                  <IconComponent className={`w-5 h-5 ${isSelected ? "text-black" : "text-amber-500"}`} />
                 </div>
                 <span className="text-[10px] font-bold tracking-tight text-center truncate w-full leading-none">
                   {cat.name}

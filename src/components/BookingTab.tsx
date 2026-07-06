@@ -184,15 +184,40 @@ ${divider}
   const getStatusBadge = (status: Booking["status"]) => {
     switch (status) {
       case "pending":
-        return <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] px-2 py-0.5 rounded font-bold">انتظار القبول</span>;
+        return (
+          <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] px-2 py-0.5 rounded font-bold flex items-center gap-1 flex-row-reverse shadow-sm shadow-amber-500/5">
+            <Clock className="w-3 h-3 text-amber-500 animate-pulse" />
+            <span>قيد الانتظار</span>
+          </span>
+        );
       case "accepted":
-        return <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] px-2 py-0.5 rounded font-bold">مقبول ومؤكد</span>;
+        return (
+          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] px-2 py-0.5 rounded font-bold flex items-center gap-1 flex-row-reverse shadow-sm shadow-emerald-500/5">
+            <CheckCircle className="w-3 h-3 text-emerald-400" />
+            <span>مقبول ومؤكد</span>
+          </span>
+        );
       case "in_progress":
-        return <span className="bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[10px] px-2 py-0.5 rounded font-bold">قيد العمل</span>;
+        return (
+          <span className="bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[10px] px-2 py-0.5 rounded font-bold flex items-center gap-1 flex-row-reverse shadow-sm shadow-sky-500/5">
+            <Play className="w-3 h-3 text-sky-400 fill-sky-400/20" />
+            <span>تحت العمل</span>
+          </span>
+        );
       case "completed":
-        return <span className="bg-slate-800 text-slate-400 border border-slate-700 text-[10px] px-2 py-0.5 rounded font-bold">مكتمل</span>;
+        return (
+          <span className="bg-slate-800 text-slate-400 border border-slate-700 text-[10px] px-2 py-0.5 rounded font-bold flex items-center gap-1 flex-row-reverse shadow-sm">
+            <CheckCheck className="w-3 h-3 text-slate-400" />
+            <span>مكتمل بنجاح</span>
+          </span>
+        );
       case "cancelled":
-        return <span className="bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[10px] px-2 py-0.5 rounded font-bold">ملغى</span>;
+        return (
+          <span className="bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[10px] px-2 py-0.5 rounded font-bold flex items-center gap-1 flex-row-reverse shadow-sm shadow-rose-500/5">
+            <XCircle className="w-3 h-3 text-rose-400" />
+            <span>ملغى / مرفوض</span>
+          </span>
+        );
     }
   };
 
@@ -264,7 +289,11 @@ ${divider}
               <div 
                 key={b.id} 
                 className={`bg-slate-900 border rounded-2xl p-4 space-y-4 transition-all text-right ${
-                  b.status === "pending" ? "border-amber-500/30 shadow-md shadow-amber-500/5" : "border-slate-800"
+                  b.isEmergency 
+                    ? "border-red-500 bg-red-950/10 shadow-lg shadow-red-500/10" 
+                    : b.status === "pending" 
+                      ? "border-amber-500/30 shadow-md shadow-amber-500/5" 
+                      : "border-slate-800"
                 }`}
               >
                 {/* Header info */}
@@ -275,6 +304,11 @@ ${divider}
                         {currentUser.role === "provider" ? `العميل: ${b.userName}` : `الفني: ${b.providerName}`}
                       </span>
                       {getStatusBadge(b.status)}
+                      {b.isEmergency && (
+                        <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[9px] px-2 py-0.5 rounded-full font-extrabold animate-pulse">
+                          🚨 طوارئ عاجلة
+                        </span>
+                      )}
                     </div>
                     <p className="text-slate-400 text-[10px] font-semibold">
                       📌 {b.category} | <span className="text-amber-500">{b.subCategory}</span>
