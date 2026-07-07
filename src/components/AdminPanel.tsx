@@ -25,7 +25,8 @@ import {
   Sparkles,
   Award,
   Database,
-  Download
+  Download,
+  CreditCard
 } from "lucide-react";
 import { db } from "../lib/db";
 import { customFirebaseConfig } from "../lib/firebase-custom-config";
@@ -175,6 +176,158 @@ export default function AdminPanel({
     reader.readAsText(file);
   };
 
+  // EXPORT SELECTED DATA (Providers, Bookings, Users) AS JSON
+  const handleExportSelectedData = (type: "all" | "providers" | "bookings" | "users") => {
+    try {
+      let exportObj: any = {};
+      let filename = "";
+
+      if (type === "all") {
+        exportObj = {
+          version: "wam_backup_core_v1",
+          timestamp: Date.now(),
+          providers,
+          bookings,
+          users
+        };
+        filename = `wam_core_backup_${new Date().toISOString().substring(0, 10)}.json`;
+      } else if (type === "providers") {
+        exportObj = {
+          version: "wam_providers_backup_v1",
+          timestamp: Date.now(),
+          providers
+        };
+        filename = `wam_providers_${new Date().toISOString().substring(0, 10)}.json`;
+      } else if (type === "bookings") {
+        exportObj = {
+          version: "wam_bookings_backup_v1",
+          timestamp: Date.now(),
+          bookings
+        };
+        filename = `wam_bookings_${new Date().toISOString().substring(0, 10)}.json`;
+      } else if (type === "users") {
+        exportObj = {
+          version: "wam_users_backup_v1",
+          timestamp: Date.now(),
+          users
+        };
+        filename = `wam_users_${new Date().toISOString().substring(0, 10)}.json`;
+      }
+
+      const jsonStr = JSON.stringify(exportObj, null, 2);
+      const blob = new Blob([jsonStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      alert(`✅ تم تصدير ${type === "all" ? "بيانات التطبيق الأساسية" : type === "providers" ? "بيانات مقدمي الخدمة" : type === "bookings" ? "سجل الحجوزات" : "بيانات المستخدمين"} بنجاح وحفظها كملف JSON!`);
+    } catch (err: any) {
+      alert(`❌ فشل التصدير: ${err?.message || err}`);
+    }
+  };
+
+  // IMPORT SELECTED DATA (Providers, Bookings, Users) FROM JSON
+  const handleImportSelectedData = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const jsonStr = event.target?.result as string;
+        const parsed = JSON.parse(jsonStr);
+
+        if (!parsed) {
+          alert("❌ الملف فارغ أو غير صالح.");
+          return;
+        }
+
+        // 1. Full Backup (wam_backup_v1)
+        if (parsed.version === "wam_backup_v1") {
+          if (confirm("⚠️ هذا الملف يحتوي على نسخة احتياطية كاملة وشاملة للتطبيق (بما في ذلك الألوان والإعدادات والمحادثات). هل ترغب في استعادتها بالكامل؟")) {
+            const res = await db.importBackupData(jsonStr);
+            if (res.success) {
+              onRefreshData();
+              alert("✅ تم استعادة كافة البيانات والإعدادات بنجاح!");
+            } else {
+              alert(`❌ فشل الاستعادة: ${res.error}`);
+            }
+          }
+          return;
+        }
+
+        // 2. Core App Backup (wam_backup_core_v1)
+        if (parsed.version === "wam_backup_core_v1") {
+          if (confirm("⚠️ هل أنت متأكد من رغبتك في استيراد بيانات التطبيق الأساسية (مقدمي الخدمات، الحجوزات، المستخدمين)؟")) {
+            if (parsed.providers) {
+              db.saveProviders(parsed.providers);
+            }
+            if (parsed.bookings) {
+              db.saveBookings(parsed.bookings);
+            }
+            if (parsed.users) {
+              db.saveUsers(parsed.users);
+            }
+            onRefreshData();
+            alert("✅ تم استيراد وتحديث كافة البيانات الأساسية (Providers, Bookings, Users) بنجاح ومزامنتها سحابياً!");
+          }
+          return;
+        }
+
+        // 3. Providers only (wam_providers_backup_v1)
+        if (parsed.version === "wam_providers_backup_v1") {
+          if (confirm("⚠️ هل أنت متأكد من رغبتك في استيراد وتحديث قائمة مقدمي الخدمات (Providers)؟")) {
+            if (Array.isArray(parsed.providers)) {
+              db.saveProviders(parsed.providers);
+              onRefreshData();
+              alert("✅ تم استيراد قائمة مقدمي الخدمات بنجاح ومزامنتها سحابياً!");
+            } else {
+              alert("❌ صيغة قائمة مقدمي الخدمات غير صالحة.");
+            }
+          }
+          return;
+        }
+
+        // 4. Bookings only (wam_bookings_backup_v1)
+        if (parsed.version === "wam_bookings_backup_v1") {
+          if (confirm("⚠️ هل أنت متأكد من رغبتك في استيراد وتحديث سجل الحجوزات (Bookings)؟")) {
+            if (Array.isArray(parsed.bookings)) {
+              db.saveBookings(parsed.bookings);
+              onRefreshData();
+              alert("✅ تم استيراد سجل الحجوزات بنجاح ومزامنتها سحابياً!");
+            } else {
+              alert("❌ صيغة سجل الحجوزات غير صالحة.");
+            }
+          }
+          return;
+        }
+
+        // 5. Users only (wam_users_backup_v1)
+        if (parsed.version === "wam_users_backup_v1") {
+          if (confirm("⚠️ هل أنت متأكد من رغبتك في استيراد وتحديث قاعدة بيانات الأعضاء والمستفيدين (Users)؟")) {
+            if (Array.isArray(parsed.users)) {
+              db.saveUsers(parsed.users);
+              onRefreshData();
+              alert("✅ تم استيراد قاعدة بيانات المستخدمين بنجاح ومزامنتها سحابياً!");
+            } else {
+              alert("❌ صيغة قاعدة بيانات المستخدمين غير صالحة.");
+            }
+          }
+          return;
+        }
+
+        alert("❌ صيغة الملف غير معترف بها. يرجى التأكد من استيراد ملف JSON تم تصديره من خلال التطبيق.");
+      } catch (err: any) {
+        alert(`❌ فشل قراءة أو معالجة ملف الاستيراد: ${err?.message || err}`);
+      }
+    };
+    reader.readAsText(file);
+  };
+
   // Tab titles translated to Arabic
   const ADMIN_TABS = [
     { name: "الإعدادات العامة", icon: Settings },
@@ -197,6 +350,7 @@ export default function AdminPanel({
     { name: "نقاط الولاء", icon: Award },
     { name: "سياسة الخصوصية", icon: BookOpen },
     { name: "الأسئلة الشائعة", icon: HelpCircle },
+    { name: "تصدير واستيراد البيانات (JSON)", icon: Database },
   ];
 
   // Action helpers:
@@ -1401,8 +1555,120 @@ export default function AdminPanel({
           </div>
         )}
 
+        {/* TAB 20: Export and Import of core data as JSON */}
+        {activeTab === 20 && (
+          <div className="space-y-6 text-right">
+            <div className="bg-slate-950 border border-slate-850 rounded-2xl p-5 md:p-6 space-y-4">
+              <h4 className="font-extrabold text-white text-sm sm:text-base flex items-center gap-2 flex-row-reverse">
+                <Database className="w-5.5 h-5.5 text-amber-500" />
+                <span>تصدير واستيراد بيانات التطبيق (JSON)</span>
+              </h4>
+              <p className="text-slate-400 text-xs leading-relaxed">
+                هذه الأداة مخصصة لحفظ نسخ احتياطية كاملة من بيانات التطبيق الأساسية (مقدمي الخدمات، سجل الحجوزات، والمستخدمين المسجلين) كملفات JSON قابلة للقراءة والتبادل لضمان بقاء بياناتك بأمان تام وحمايتها من الضياع في حال حدوث أي تعطل للاتصال السحابي.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Export Panel */}
+              <div className="bg-slate-950 border border-slate-850 rounded-2xl p-5 space-y-5">
+                <h5 className="font-extrabold text-white text-sm border-b border-slate-850 pb-3 flex items-center gap-1.5 flex-row-reverse">
+                  <Download className="w-5 h-5 text-emerald-400" />
+                  <span>تصدير البيانات 📥</span>
+                </h5>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  اختر البيانات التي ترغب في تصديرها كملف JSON وحفظها على جهازك بشكل مباشر وآمن:
+                </p>
+
+                <div className="space-y-3 pt-1">
+                  <button
+                    onClick={() => handleExportSelectedData("all")}
+                    className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-black text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98] shadow-md shadow-emerald-950/20"
+                  >
+                    <Download className="w-4 h-4 text-black" />
+                    <span>تصدير البيانات الشاملة (كل البيانات) 🪐</span>
+                  </button>
+
+                  <div className="grid grid-cols-1 gap-2 pt-1">
+                    <button
+                      onClick={() => handleExportSelectedData("providers")}
+                      className="w-full py-2.5 bg-slate-900 hover:bg-slate-850 text-amber-500 border border-slate-800 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                    >
+                      <span>تصدير الفنيين ومزودي الخدمة فقط ({providers.length}) 💼</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleExportSelectedData("bookings")}
+                      className="w-full py-2.5 bg-slate-900 hover:bg-slate-850 text-sky-400 border border-slate-800 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                    >
+                      <span>تصدير سجل الحجوزات فقط ({bookings.length}) 📅</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleExportSelectedData("users")}
+                      className="w-full py-2.5 bg-slate-900 hover:bg-slate-850 text-purple-400 border border-slate-800 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                    >
+                      <span>تصدير قاعدة بيانات المستخدمين فقط ({users.length}) 👥</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Import Panel */}
+              <div className="bg-slate-950 border border-slate-850 rounded-2xl p-5 space-y-5">
+                <h5 className="font-extrabold text-white text-sm border-b border-slate-850 pb-3 flex items-center gap-1.5 flex-row-reverse">
+                  <Database className="w-5 h-5 text-amber-500" />
+                  <span>استيراد واستعادة البيانات 📤</span>
+                </h5>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  قم برفع ملف JSON الذي قمت بتصديره سابقاً لتحديث أو استعادة قاعدة البيانات المحلية ومزامنتها تلقائياً سحابياً:
+                </p>
+
+                <div className="pt-2">
+                  <label className="group flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-slate-800 hover:border-amber-500/50 bg-slate-900/40 hover:bg-slate-900/80 rounded-2xl cursor-pointer transition-all p-4 text-center">
+                    <Database className="w-8 h-8 text-slate-500 group-hover:text-amber-500 group-hover:scale-110 transition-all duration-300" />
+                    <span className="text-xs text-slate-300 font-bold mt-3">انقر لاختيار ملف JSON للرفع 📂</span>
+                    <span className="text-[10px] text-slate-500 mt-1">يدعم ملفات النسخ الشاملة أو مجموعات معينة</span>
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleImportSelectedData}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                <div className="p-3 bg-slate-900/50 border border-slate-850 rounded-xl text-[10px] text-slate-500 leading-relaxed space-y-1">
+                  <p className="font-bold text-slate-400 text-[11px]">💡 ملاحظات هامة عند الاستيراد:</p>
+                  <p>• تأكد أن الملف بصيغة JSON المعتمدة للتطبيق.</p>
+                  <p>• عملية الاستيراد قد تحل محل البيانات الحالية أو تدمجها وتحدثها.</p>
+                  <p>• إذا كان تطبيقك متصلاً بقاعدة البيانات السحابية (Firebase) فستتم مزامنة البيانات المستوردة تلقائياً.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Current Data Overview Statistics Cards */}
+            <div className="bg-slate-950 border border-slate-850 rounded-2xl p-5 space-y-3">
+              <h5 className="font-extrabold text-white text-xs sm:text-sm text-right">📊 حجم البيانات الحالية المخزنة في النظام:</h5>
+              <div className="grid grid-cols-3 gap-4 text-center font-mono">
+                <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-850 space-y-1">
+                  <p className="text-slate-400 text-[10px] sm:text-xs font-sans font-bold">مقدمي الخدمات (Providers)</p>
+                  <p className="text-lg font-bold text-amber-500">{providers.length}</p>
+                </div>
+                <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-850 space-y-1">
+                  <p className="text-slate-400 text-[10px] sm:text-xs font-sans font-bold">سجل الحجوزات (Bookings)</p>
+                  <p className="text-lg font-bold text-sky-400">{bookings.length}</p>
+                </div>
+                <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-850 space-y-1">
+                  <p className="text-slate-400 text-[10px] sm:text-xs font-sans font-bold">المستفيدين/العملاء (Users)</p>
+                  <p className="text-lg font-bold text-purple-400">{users.length}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Fallback view for remaining tabs */}
-        {activeTab > 10 && activeTab !== 17 && (
+        {activeTab > 10 && activeTab !== 17 && activeTab !== 20 && (
           <div className="p-8 text-center text-slate-500 border border-dashed border-slate-800 rounded-xl space-y-3">
             <Lock className="w-10 h-10 text-slate-700 mx-auto animate-pulse" />
             <h5 className="font-bold text-white text-xs">ميزة [{ADMIN_TABS[activeTab].name}] مفعلة ونشطة تلقائياً</h5>

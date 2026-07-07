@@ -654,47 +654,7 @@ ${divider}
                       </>
                     )}
                   </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-});
-}te-800 transition-all"
-                          >
-                            تعديل الموعد ✏️
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>�
-                    </button>
-                  )}
 
-                  {currentUser.role === "provider" && b.status === "in_progress" && (
-                    <button
-                      onClick={() => handleUpdateStatus(b.id, "completed")}
-                      className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-black text-[10px] font-extrabold rounded-xl cursor-pointer transition-all flex items-center gap-1.5"
-                    >
-                      <CheckCheck className="w-3.5 h-3.5 text-black" />
-                      إتمام العمل وتسليمه
-                    </button>
-                  )}
-
-                  {/* Customer (User) Action Buttons */}
-                  {currentUser.role === "user" && b.status === "pending" && (
-                    <button
-                      onClick={() => handleUpdateStatus(b.id, "cancelled")}
-                      className="px-3.5 py-1.5 bg-rose-950/40 hover:bg-rose-950 text-rose-300 text-[10px] font-bold rounded-xl border border-rose-500/20 cursor-pointer transition-all flex items-center gap-1.5"
-                    >
-                      <XCircle className="w-3.5 h-3.5" />
-                      إلغاء طلب الحجز
-                    </button>
-                  )}
                 </div>
               </div>
             );
