@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { 
   AppSettings, 
   Provider, 
@@ -657,105 +658,116 @@ export default function App() {
         )}
 
         {/* Tab switcher renderer */}
-        {(() => {
-          if (activeTab === "admin") {
-            return (
-              <AdminPanel
-                settings={settings}
-                providers={providers}
-                pendingProviders={pendingProviders}
-                bookings={bookings}
-                chats={chats}
-                notifications={notifications}
-                users={users}
-                onUpdateSettings={(newSet) => setSettings(newSet)}
-                onRefreshData={() => {
-                  setProviders(db.getProviders());
-                  setPendingProviders(db.getPendingProviders());
-                  setBookings(db.getBookings());
-                  setNotifications(db.getNotifications());
-                  setChats(db.getChats());
-                  setUsers(db.getUsers());
-                }}
-              />
-            );
-          }
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="w-full"
+          >
+            {(() => {
+              if (activeTab === "admin") {
+                return (
+                  <AdminPanel
+                    settings={settings}
+                    providers={providers}
+                    pendingProviders={pendingProviders}
+                    bookings={bookings}
+                    chats={chats}
+                    notifications={notifications}
+                    users={users}
+                    onUpdateSettings={(newSet) => setSettings(newSet)}
+                    onRefreshData={() => {
+                      setProviders(db.getProviders());
+                      setPendingProviders(db.getPendingProviders());
+                      setBookings(db.getBookings());
+                      setNotifications(db.getNotifications());
+                      setChats(db.getChats());
+                      setUsers(db.getUsers());
+                    }}
+                  />
+                );
+              }
 
-          switch (activeTab) {
-            case "map":
-              return (
-                <MapTab
-                  providers={providers}
-                  settings={settings}
-                  onBookClick={(p) => setBookingProvider(p)}
-                  onSelectProvider={(p) => setSelectedProvider(p)}
-                />
-              );
-            case "join":
-              return (
-                <JoinTab
-                  settings={settings}
-                  categories={preloadedCategories}
-                  currentUser={currentUser}
-                  bookings={bookings}
-                  providers={providers}
-                  onRegistered={() => {
-                    setPendingProviders(db.getPendingProviders());
-                    setNotifications(db.getNotifications());
-                  }}
-                />
-              );
-            case "booking":
-              return (
-                <BookingTab
-                  bookings={bookings}
-                  settings={settings}
-                  currentUser={currentUser}
-                  onOpenChat={(id, name) => handleOpenChat(id, name)}
-                  onBookingUpdated={() => setBookings(db.getBookings())}
-                />
-              );
-            case "chat":
-              return (
-                <ChatTab
-                  chats={chats}
-                  messages={messages}
-                  settings={settings}
-                  currentUser={currentUser}
-                  activeChatId={chats.length > 0 ? chats[0].id : null}
-                  setActiveChatId={() => {}}
-                  onNewMessage={() => setMessages(db.getMessages())}
-                />
-              );
-            case "about":
-              return (
-                <AboutTab
-                  settings={settings}
-                />
-              );
-            case "payment":
-              return (
-                <PaymentTab
-                  settings={settings}
-                  currentUser={currentUser}
-                />
-              );
-            default:
-              return (
-                <HomeTab
-                  providers={providers}
-                  settings={settings}
-                  categories={preloadedCategories}
-                  banners={db.getBanners()}
-                  currentUser={currentUser}
-                  onBookClick={(p) => setBookingProvider(p)}
-                  onChatClick={(p) => handleOpenChat(p.id, p.name)}
-                  onSelectProvider={(p) => setSelectedProvider(p)}
-                  onToggleFavorite={handleToggleFavorite}
-                />
-              );
-          }
-        })()}
+              switch (activeTab) {
+                case "map":
+                  return (
+                    <MapTab
+                      providers={providers}
+                      settings={settings}
+                      onBookClick={(p) => setBookingProvider(p)}
+                      onSelectProvider={(p) => setSelectedProvider(p)}
+                    />
+                  );
+                case "join":
+                  return (
+                    <JoinTab
+                      settings={settings}
+                      categories={preloadedCategories}
+                      currentUser={currentUser}
+                      bookings={bookings}
+                      providers={providers}
+                      onRegistered={() => {
+                        setPendingProviders(db.getPendingProviders());
+                        setNotifications(db.getNotifications());
+                      }}
+                    />
+                  );
+                case "booking":
+                  return (
+                    <BookingTab
+                      bookings={bookings}
+                      settings={settings}
+                      currentUser={currentUser}
+                      onOpenChat={(id, name) => handleOpenChat(id, name)}
+                      onBookingUpdated={() => setBookings(db.getBookings())}
+                    />
+                  );
+                case "chat":
+                  return (
+                    <ChatTab
+                      chats={chats}
+                      messages={messages}
+                      settings={settings}
+                      currentUser={currentUser}
+                      activeChatId={chats.length > 0 ? chats[0].id : null}
+                      setActiveChatId={() => {}}
+                      onNewMessage={() => setMessages(db.getMessages())}
+                    />
+                  );
+                case "about":
+                  return (
+                    <AboutTab
+                      settings={settings}
+                    />
+                  );
+                case "payment":
+                  return (
+                    <PaymentTab
+                      settings={settings}
+                      currentUser={currentUser}
+                    />
+                  );
+                default:
+                  return (
+                    <HomeTab
+                      providers={providers}
+                      settings={settings}
+                      categories={preloadedCategories}
+                      banners={db.getBanners()}
+                      currentUser={currentUser}
+                      onBookClick={(p) => setBookingProvider(p)}
+                      onChatClick={(p) => handleOpenChat(p.id, p.name)}
+                      onSelectProvider={(p) => setSelectedProvider(p)}
+                      onToggleFavorite={handleToggleFavorite}
+                    />
+                  );
+              }
+            })()}
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       {/* 3. DYNAMIC PROFILE DETAIL MODAL */}

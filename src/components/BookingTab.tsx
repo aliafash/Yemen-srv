@@ -36,6 +36,33 @@ export default function BookingTab({
   onBookingUpdated
 }: BookingTabProps) {
   const [filterStatus, setFilterStatus] = useState<string>("الكل");
+  const [editingBookingId, setEditingBookingId] = useState<string | null>(null);
+  const [newPreferredDate, setNewPreferredDate] = useState<string>("");
+  const [newPreferredTime, setNewPreferredTime] = useState<string>("");
+
+  const isLessThan8Hours = (preferredDate: string, preferredTime: string) => {
+    try {
+      if (!preferredDate) return false;
+      // Replace Arabic text if any, or normalize
+      const dateStr = `${preferredDate} ${preferredTime || "12:00 PM"}`;
+      const appointmentTime = Date.parse(dateStr);
+      if (isNaN(appointmentTime)) {
+        const parts = preferredDate.split("-");
+        if (parts.length === 3) {
+          const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+          if (preferredTime && (preferredTime.toLowerCase().includes("pm") || preferredTime.includes("م"))) {
+            d.setHours(d.getHours() + 12);
+          }
+          return (d.getTime() - Date.now()) < 8 * 60 * 60 * 1000;
+        }
+        // fallback: compare timestamp of booking creation
+        return false;
+      }
+      return (appointmentTime - Date.now()) < 8 * 60 * 60 * 1000;
+    } catch (e) {
+      return false;
+    }
+  };
 
   // Filter bookings:
   // - Customers (Users) can only see their own bookings.
@@ -181,41 +208,117 @@ ${divider}
     onBookingUpdated();
   };
 
+  const handleUndoStatus = (booking: Booking) => {
+    let prevStatus: Booking["status"] = "pending";
+    let progress = 10;
+    if (booking.status === "completed") {
+      prevStatus = "in_progress";
+      progress = 70;
+    } else if (booking.status === "in_progress") {
+      prevStatus = "accepted";
+      progress = 35;
+    } else if (booking.status === "accepted") {
+      prevStatus = "pending";
+      progress = 10;
+    }
+
+    const updated = bookings.map(b => {
+      if (b.id === booking.id) {
+        return { ...b, status: prevStatus, progress };
+      }
+      return b;
+    });
+    db.saveBookings(updated);
+    onBookingUpdated();
+  };
+
+  const handleSwapStatus = (booking: Booking) => {
+    let nextStatus: Booking["status"] = "in_progress";
+    let progress = 70;
+    if (booking.status === "in_progress") {
+      nextStatus = "accepted";
+      progress = 35;
+    }
+
+    const updated = bookings.map(b => {
+      if (b.id === booking.id) {
+        return { ...b, status: nextStatus, progress };
+      }
+      return b;
+    });
+    db.saveBookings(updated);
+    onBookingUpdated();
+  };
+
+  const handleApplyChangeDetails = (bookingId: string) => {
+    const booking = bookings.find(b => b.id === bookingId);
+    if (!booking) return;
+
+    if (isLessThan8Hours(booking.preferredDate, booking.preferredTime)) {
+      alert("⚠️ لا يمكن تعديل الموعد لأنه متبقي أقل من 8 ساعات!");
+      return;
+    }
+
+    const updated = bookings.map(b => {
+      if (b.id === bookingId) {
+        return { 
+          ...b, 
+          preferredDate: newPreferredDate || b.preferredDate, 
+          preferredTime: newPreferredTime || b.preferredTime 
+        };
+      }
+      return b;
+    });
+    db.saveBookings(updated);
+    setEditingBookingId(null);
+    onBookingUpdated();
+    alert("✅ تم تعديل الموعد بنجاح ومزامنته!");
+  };
+
+  const handleDeleteBooking = (bookingId: string) => {
+    if (confirm("⚠️ هل أنت متأكد من رغبتك في حذف هذا الحجز نهائياً من الأرشيف؟")) {
+      const filtered = bookings.filter(b => b.id !== bookingId);
+      db.saveBookings(filtered);
+      onBookingUpdated();
+      alert("✅ تم حذف الحجز بنجاح!");
+    }
+  };
+
   const getStatusBadge = (status: Booking["status"]) => {
     switch (status) {
       case "pending":
         return (
-          <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] px-2 py-0.5 rounded font-bold flex items-center gap-1 flex-row-reverse shadow-sm shadow-amber-500/5">
-            <Clock className="w-3 h-3 text-amber-500 animate-pulse" />
+          <span className="bg-amber-500/15 text-amber-500 border border-amber-500/30 text-[11px] px-2.5 py-1 rounded-full font-bold flex items-center gap-1.5 flex-row-reverse shadow-md shadow-amber-500/10">
+            <span className="animate-pulse">⏳</span>
             <span>قيد الانتظار</span>
           </span>
         );
       case "accepted":
         return (
-          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] px-2 py-0.5 rounded font-bold flex items-center gap-1 flex-row-reverse shadow-sm shadow-emerald-500/5">
-            <CheckCircle className="w-3 h-3 text-emerald-400" />
-            <span>مقبول ومؤكد</span>
+          <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[11px] px-2.5 py-1 rounded-full font-bold flex items-center gap-1.5 flex-row-reverse shadow-md shadow-emerald-500/10">
+            <span>✅</span>
+            <span>مقبول</span>
           </span>
         );
       case "in_progress":
         return (
-          <span className="bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[10px] px-2 py-0.5 rounded font-bold flex items-center gap-1 flex-row-reverse shadow-sm shadow-sky-500/5">
-            <Play className="w-3 h-3 text-sky-400 fill-sky-400/20" />
+          <span className="bg-sky-500/15 text-sky-400 border border-sky-500/30 text-[11px] px-2.5 py-1 rounded-full font-bold flex items-center gap-1.5 flex-row-reverse shadow-md shadow-sky-500/10">
+            <span>🛠️</span>
             <span>تحت العمل</span>
           </span>
         );
       case "completed":
         return (
-          <span className="bg-slate-800 text-slate-400 border border-slate-700 text-[10px] px-2 py-0.5 rounded font-bold flex items-center gap-1 flex-row-reverse shadow-sm">
-            <CheckCheck className="w-3 h-3 text-slate-400" />
-            <span>مكتمل بنجاح</span>
+          <span className="bg-slate-800 text-slate-300 border border-slate-700 text-[11px] px-2.5 py-1 rounded-full font-bold flex items-center gap-1.5 flex-row-reverse shadow-sm">
+            <span>✨</span>
+            <span>مكتمل</span>
           </span>
         );
       case "cancelled":
         return (
-          <span className="bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[10px] px-2 py-0.5 rounded font-bold flex items-center gap-1 flex-row-reverse shadow-sm shadow-rose-500/5">
-            <XCircle className="w-3 h-3 text-rose-400" />
-            <span>ملغى / مرفوض</span>
+          <span className="bg-rose-500/15 text-rose-400 border border-rose-500/30 text-[11px] px-2.5 py-1 rounded-full font-bold flex items-center gap-1.5 flex-row-reverse shadow-md shadow-rose-500/10">
+            <span>❌</span>
+            <span>مرفوض</span>
           </span>
         );
     }
@@ -338,75 +441,237 @@ ${divider}
                 {/* Progress bar representing the booking lifecycle (PENDING -> ACCEPTED -> IN_PROGRESS -> COMPLETED) */}
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-[9px] text-slate-500 flex-row-reverse font-bold">
-                    <span className={b.progress >= 100 ? "text-emerald-400" : "text-slate-500"}>مكتمل 🏁</span>
-                    <span className={b.progress >= 70 ? "text-sky-400" : "text-slate-500"}>تحت العمل 🛠️</span>
-                    <span className={b.progress >= 35 ? "text-emerald-400" : "text-slate-500"}>تم التأكيد ✓</span>
-                    <span className={b.progress >= 0 ? "text-amber-500" : "text-slate-500"}>انتظار</span>
+                    <span className={b.progress >= 100 ? "text-emerald-400" : "text-slate-400"}>مكتمل</span>
+                    <span className={b.progress >= 70 ? "text-sky-400" : "text-slate-400"}>تحت العمل</span>
+                    <span className={b.progress >= 35 ? "text-emerald-400" : "text-slate-400"}>مقبول</span>
+                    <span className="text-amber-500 animate-pulse">قيد الانتظار</span>
                   </div>
-                  <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-850 relative">
+                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
                     <div 
-                      className={`h-full rounded-full transition-all duration-700 ${
+                      className={`h-full transition-all duration-500 ${
                         b.status === "cancelled" 
                           ? "bg-rose-500 w-full" 
                           : b.status === "completed" 
-                          ? "bg-emerald-500" 
-                          : b.status === "in_progress" 
-                          ? "bg-sky-500" 
-                          : "bg-amber-500"
+                            ? "bg-emerald-500" 
+                            : b.status === "in_progress"
+                              ? "bg-sky-500"
+                              : b.status === "accepted"
+                                ? "bg-emerald-400"
+                                : "bg-amber-500"
                       }`}
-                      style={{ width: `${b.status === "cancelled" ? 100 : b.progress}%` }}
+                      style={{ width: `${b.progress || 10}%` }}
                     />
                   </div>
                 </div>
 
                 {/* Action controls for updating booking state */}
-                <div className="flex gap-2 justify-end pt-1">
-                  {/* Download booking document button */}
-                  <button
-                    onClick={() => handleDownloadDocument(b)}
-                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-400 text-[10px] font-bold rounded-xl border border-slate-750 cursor-pointer transition-all flex items-center gap-1.5"
-                    title="تحميل مستند الحجز"
-                  >
-                    <Download className="w-3.5 h-3.5 text-amber-400" />
-                    <span>تحميل المستند</span>
-                  </button>
-
-                  {/* Chat directly inside application */}
-                  <button
-                    onClick={() => onOpenChat(b.providerId, b.providerName)}
-                    className="p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-all"
-                    title="فتح دردشة مباشرة"
-                  >
-                    <MessageSquare className="w-4 h-4 text-sky-400" />
-                  </button>
-
-                  {/* Provider Action Buttons */}
-                  {currentUser.role === "provider" && b.status === "pending" && (
-                    <>
-                      <button
-                        onClick={() => handleUpdateStatus(b.id, "cancelled")}
-                        className="px-3.5 py-1.5 bg-rose-950/40 hover:bg-rose-950 text-rose-300 text-[10px] font-bold rounded-xl border border-rose-500/20 cursor-pointer transition-all flex items-center gap-1.5"
-                      >
-                        <XCircle className="w-3.5 h-3.5" />
-                        رفض
-                      </button>
-                      <button
-                        onClick={() => handleUpdateStatus(b.id, "accepted")}
-                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-black text-[10px] font-extrabold rounded-xl cursor-pointer transition-all flex items-center gap-1.5"
-                      >
-                        <CheckCircle className="w-3.5 h-3.5 text-black" />
-                        قبول وتأكيد
-                      </button>
-                    </>
+                <div className="space-y-3 pt-2 border-t border-slate-850/40">
+                  {/* Inline reschedule/change form */}
+                  {editingBookingId === b.id && (
+                    <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2 mt-2 text-right">
+                      <p className="text-[10px] text-amber-500 font-bold">تغيير موعد الحجز (قبل 8 ساعات من الموعد):</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] text-slate-400 mb-1">الوقت الجديد:</label>
+                          <input 
+                            type="text" 
+                            placeholder="مثال: 10:00 AM"
+                            value={newPreferredTime}
+                            onChange={(e) => setNewPreferredTime(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white text-center"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 justify-end pt-1">
+                        <button 
+                          onClick={() => setEditingBookingId(null)}
+                          className="px-2.5 py-1 bg-slate-800 text-slate-300 text-[10px] rounded"
+                        >
+                          إلغاء
+                        </button>
+                        <button 
+                          onClick={() => handleApplyChangeDetails(b.id)}
+                          className="px-2.5 py-1 bg-amber-500 text-black text-[10px] font-bold rounded"
+                        >
+                          حفظ التعديل
+                        </button>
+                      </div>
+                    </div>
                   )}
 
-                  {currentUser.role === "provider" && b.status === "accepted" && (
+                  {/* Warning message if appointment is less than 8 hours away */}
+                  {isLessThan8Hours(b.preferredDate, b.preferredTime) && b.status !== "completed" && b.status !== "cancelled" && (
+                    <div className="bg-red-950/20 border border-red-500/20 text-red-400 p-2 rounded-lg text-[10px] text-center leading-relaxed">
+                      ⚠️ متبقي أقل من 8 ساعات على الموعد المحدد. يمنع الإلغاء أو التغيير حالياً لضمان مصداقية العمل.
+                    </div>
+                  )}
+
+                  <div className="flex gap-1.5 flex-wrap justify-end items-center">
+                    {/* Download booking document button */}
                     <button
-                      onClick={() => handleUpdateStatus(b.id, "in_progress")}
-                      className="px-4 py-1.5 bg-sky-600 hover:bg-sky-500 text-black text-[10px] font-extrabold rounded-xl cursor-pointer transition-all flex items-center gap-1.5"
+                      onClick={() => handleDownloadDocument(b)}
+                      className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-400 text-[10px] font-bold rounded-xl border border-slate-750 cursor-pointer transition-all flex items-center gap-1"
+                      title="تحميل مستند الحجز"
                     >
-                      <Play className="w-3.5 h-3.5 text-black fill-black" />
-                      مباشرة وبدء العمل
+                      <Download className="w-3 h-3 text-amber-400" />
+                      <span>تحميل</span>
+                    </button>
+
+                    {/* Chat directly inside application */}
+                    <button
+                      onClick={() => onOpenChat(b.providerId, b.providerName)}
+                      className="p-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-all"
+                      title="فتح دردشة مباشرة"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 text-sky-400" />
+                    </button>
+
+                    {/* Provider Action Buttons */}
+                    {currentUser.role === "provider" && (
+                      <>
+                        {/* 1. Pending controls */}
+                        {b.status === "pending" && (
+                          <>
+                            <button
+                              disabled={isLessThan8Hours(b.preferredDate, b.preferredTime)}
+                              onClick={() => handleUpdateStatus(b.id, "cancelled")}
+                              className={`px-2.5 py-1.5 text-[10px] font-bold rounded-xl border transition-all flex items-center gap-1 ${
+                                isLessThan8Hours(b.preferredDate, b.preferredTime)
+                                  ? "bg-slate-900 text-slate-500 border-slate-850 cursor-not-allowed opacity-50"
+                                  : "bg-rose-950/40 hover:bg-rose-950 text-rose-300 border-rose-500/20 cursor-pointer"
+                              }`}
+                            >
+                              <XCircle className="w-3 h-3" />
+                              رفض الطلب
+                            </button>
+                            <button
+                              onClick={() => handleUpdateStatus(b.id, "accepted")}
+                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-black text-[10px] font-extrabold rounded-xl cursor-pointer transition-all flex items-center gap-1"
+                            >
+                              <CheckCircle className="w-3 h-3 text-black" />
+                              قبول وتأكيد
+                            </button>
+                          </>
+                        )}
+
+                        {/* 2. Accepted controls */}
+                        {b.status === "accepted" && (
+                          <button
+                            onClick={() => handleUpdateStatus(b.id, "in_progress")}
+                            className="px-2.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-black text-[10px] font-extrabold rounded-xl cursor-pointer transition-all flex items-center gap-1"
+                          >
+                            <Play className="w-3 h-3 text-black fill-black" />
+                            بدء العمل الفعلي
+                          </button>
+                        )}
+
+                        {/* 3. In Progress controls */}
+                        {b.status === "in_progress" && (
+                          <button
+                            onClick={() => handleUpdateStatus(b.id, "completed")}
+                            className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-black text-[10px] font-extrabold rounded-xl cursor-pointer transition-all flex items-center gap-1"
+                          >
+                            <CheckCheck className="w-3.5 h-3.5 text-black" />
+                            تسليم وإتمام العمل
+                          </button>
+                        )}
+
+                        {/* 4. Undo Status (تراجع) */}
+                        {["accepted", "in_progress", "completed"].includes(b.status) && (
+                          <button
+                            onClick={() => handleUndoStatus(b)}
+                            className="px-2 py-1.5 bg-slate-950 hover:bg-slate-850 text-slate-300 text-[10px] font-bold rounded-xl border border-slate-800 transition-all"
+                            title="تراجع عن الخطوة السابقة"
+                          >
+                            تراجع ↩️
+                          </button>
+                        )}
+
+                        {/* 5. Swap Status (تبديل الحالة) */}
+                        {["accepted", "in_progress"].includes(b.status) && (
+                          <button
+                            onClick={() => handleSwapStatus(b)}
+                            className="px-2 py-1.5 bg-slate-950 hover:bg-slate-850 text-amber-500 text-[10px] font-bold rounded-xl border border-slate-800 transition-all"
+                            title="تبديل حالة الحجز"
+                          >
+                            تبديل الحالة 🔄
+                          </button>
+                        )}
+
+                        {/* 6. Change Details (تغيير الموعد) */}
+                        {!isLessThan8Hours(b.preferredDate, b.preferredTime) && b.status !== "completed" && b.status !== "cancelled" && (
+                          <button
+                            onClick={() => {
+                              setEditingBookingId(b.id);
+                              setNewPreferredDate(b.preferredDate);
+                              setNewPreferredTime(b.preferredTime);
+                            }}
+                            className="px-2 py-1.5 bg-slate-950 hover:bg-slate-850 text-sky-400 text-[10px] font-bold rounded-xl border border-slate-800 transition-all"
+                          >
+                            تغيير الموعد ✏️
+                          </button>
+                        )}
+
+                        {/* 7. Delete Booking (حذف الحجز نهائياً) */}
+                        <button
+                          onClick={() => handleDeleteBooking(b.id)}
+                          className="px-2 py-1.5 bg-rose-950/25 hover:bg-rose-950/60 text-rose-400 text-[10px] font-bold rounded-xl border border-rose-500/15 transition-all"
+                          title="حذف الحجز من الأرشيف"
+                        >
+                          حذف 🗑️
+                        </button>
+                      </>
+                    )}
+
+                    {/* Customer (User) Action Buttons */}
+                    {currentUser.role === "user" && b.status === "pending" && (
+                      <>
+                        <button
+                          disabled={isLessThan8Hours(b.preferredDate, b.preferredTime)}
+                          onClick={() => handleUpdateStatus(b.id, "cancelled")}
+                          className={`px-3 py-1.5 text-[10px] font-bold rounded-xl border transition-all flex items-center gap-1 ${
+                            isLessThan8Hours(b.preferredDate, b.preferredTime)
+                              ? "bg-slate-900 text-slate-500 border-slate-850 cursor-not-allowed opacity-50"
+                              : "bg-rose-950/40 hover:bg-rose-950 text-rose-300 border-rose-500/20 cursor-pointer"
+                          }`}
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          إلغاء طلب الحجز
+                        </button>
+
+                        {!isLessThan8Hours(b.preferredDate, b.preferredTime) && (
+                          <button
+                            onClick={() => {
+                              setEditingBookingId(b.id);
+                              setNewPreferredDate(b.preferredDate);
+                              setNewPreferredTime(b.preferredTime);
+                            }}
+                            className="px-2.5 py-1.5 bg-slate-950 hover:bg-slate-850 text-sky-400 text-[10px] font-bold rounded-xl border border-slate-800 transition-all"
+                          >
+                            تعديل الموعد ✏️
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+});
+}te-800 transition-all"
+                          >
+                            تعديل الموعد ✏️
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>�
                     </button>
                   )}
 
