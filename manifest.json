@@ -1,0 +1,23 @@
+{
+  "short_name": "WAM اليمن",
+  "name": "WAM - بوابة كل خدمات اليمن المتكاملة",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    },
+    {
+      "src": "opengraph.jpg",
+      "type": "image/jpeg",
+      "sizes": "1200x630"
+    }
+  ],
+  "start_url": ".",
+  "background_color": "#0f172a",
+  "theme_color": "#0d9488",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "ar-YE",
+  "dir": "rtl"
+}
