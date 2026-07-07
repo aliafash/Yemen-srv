@@ -669,6 +669,20 @@ export default function App() {
           >
             {(() => {
               if (activeTab === "admin") {
+                if (currentUser.role !== "admin" && currentUser.role !== "owner" && currentUser.role !== "supervisor") {
+                  return (
+                    <div className="p-8 text-center bg-slate-950 border border-slate-800 rounded-2xl max-w-md mx-auto space-y-4 my-12" dir="rtl">
+                      <p className="text-rose-500 text-lg font-extrabold">⚠️ خطأ في الصلاحيات والمصادقة</p>
+                      <p className="text-slate-400 text-xs">ليس لديك صلاحية كافية لعرض لوحة التحكم. يرجى تسجيل الدخول أولاً كمسؤول أو مالك بصلاحية مناسبة.</p>
+                      <button 
+                        onClick={() => setActiveTab("home")}
+                        className="px-4 py-2 bg-slate-900 text-slate-300 hover:text-white rounded-lg text-xs cursor-pointer border border-slate-800"
+                      >
+                        العودة للدليل الرئيسي
+                      </button>
+                    </div>
+                  );
+                }
                 return (
                   <AdminPanel
                     settings={settings}
