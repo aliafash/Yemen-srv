@@ -48,7 +48,7 @@ import JoinTab from "./components/JoinTab";
 import BookingTab from "./components/BookingTab";
 import ChatTab from "./components/ChatTab";
 import AboutTab from "./components/AboutTab";
-import PaymentTab from "./components/PaymentTab";
+import { PaymentTab } from "./components/PaymentTab";
 import SmartAssistant from "./components/SmartAssistant";
 import BackdoorDialog from "./components/BackdoorDialog";
 import NotificationCenter from "./components/NotificationCenter";
@@ -96,6 +96,7 @@ export default function App() {
   const [rolePasswordError, setRolePasswordError] = useState("");
   const [isRoleVerifying, setIsRoleVerifying] = useState(false);
   const [showPasswordChar, setShowPasswordChar] = useState(false);
+  const [showRecoveryOptions, setShowRecoveryOptions] = useState(false);
 
   // Secret Easter Egg click counter
   const [homeClickCount, setHomeClickCount] = useState(0);
@@ -248,6 +249,36 @@ export default function App() {
       setCurrentUser(u);
       setActiveTab("home");
     }
+  };
+
+  const handleRecoverRolePassword = (method: "whatsapp" | "internal") => {
+    const roleName = pendingRoleToSwitch === "admin" ? "مدير عام" : 
+                     pendingRoleToSwitch === "supervisor" ? "مشرف" : "مقدم خدمة";
+                     
+    if (method === "whatsapp") {
+      const msg = encodeURIComponent(`السلام عليكم، لقد فقدت كلمة المرور الخاصة بحسابي كـ (${roleName}) في تطبيق WAM. يرجى تزويدي ببيانات استرداد الدخول للأهمية.`);
+      const phone = settings.supportWhatsapp || "777644";
+      window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
+      alert("✅ تم تجهيز رسالة الاسترداد! سيتم توجيهك إلى واتساب الدعم الفني لمساعدتك.");
+    } else {
+      // Create internal notification
+      const notifs = db.getNotifications();
+      const recoveryNotif: Notification = {
+        id: `recovery_${Date.now()}`,
+        title: "🔑 طلب استعادة كلمة المرور",
+        body: `طلب استرجاع أمني لكلمة مرور حساب (${roleName}) في تمام الساعة ${new Date().toLocaleTimeString("ar")}`,
+        type: "admin",
+        targetType: "all",
+        targetId: "admin",
+        targetRole: "admin",
+        isRead: false,
+        timestamp: Date.now()
+      };
+      db.saveNotifications([recoveryNotif, ...notifs]);
+      db.addAuditLog("PASSWORD_RECOVERY_REQUESTED", "SYSTEM", `طلب استرداد كلمة مرور لـ ${roleName}`);
+      alert("📥 تم إرسال طلب استعادة كلمة المرور داخلياً لقسم الأمان بنجاح! سيقوم المشرف بمعالجة طلبك قريباً.");
+    }
+    setShowRecoveryOptions(false);
   };
 
   const handleVerifyRolePassword = async (e: React.FormEvent) => {
@@ -1276,6 +1307,9 @@ export default function App() {
                 onClick={() => {
                   setShowRolePasswordModal(false);
                   setPendingRoleToSwitch(null);
+                  setRolePasswordInput("");
+                  setRolePasswordError("");
+                  setShowRecoveryOptions(false);
                 }} 
                 className="text-slate-500 hover:text-white p-1 hover:bg-slate-850 rounded-lg cursor-pointer"
               >
@@ -1317,12 +1351,49 @@ export default function App() {
                 <p className="text-rose-500 text-[10px] font-bold text-right">{rolePasswordError}</p>
               )}
 
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={() => setShowRecoveryOptions(!showRecoveryOptions)}
+                  className="text-[10px] font-bold text-amber-500 hover:text-amber-400 underline cursor-pointer focus:outline-none"
+                >
+                  {showRecoveryOptions ? "إخفاء خيارات استعادة الحساب" : "هل نسيت كلمة المرور؟"}
+                </button>
+              </div>
+
+              {showRecoveryOptions && (
+                <div className="bg-slate-950/80 border border-slate-850 rounded-xl p-3.5 space-y-2.5 text-right text-[10px]">
+                  <p className="text-slate-400 leading-relaxed font-semibold">
+                    اختر الوسيلة المناسبة لإرسال طلب أمان واستعادة بيانات دخولك:
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleRecoverRolePassword("internal")}
+                      className="py-2 bg-slate-900 hover:bg-slate-850 text-sky-400 border border-slate-800 rounded-lg font-bold text-[9px] transition-all cursor-pointer"
+                    >
+                      طلب استرداد داخلي 🔑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRecoverRolePassword("whatsapp")}
+                      className="py-2 bg-emerald-950/40 hover:bg-emerald-950 text-emerald-400 border border-emerald-500/20 rounded-lg font-bold text-[9px] transition-all cursor-pointer"
+                    >
+                      إرسال عبر واتساب 💬
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-2.5">
                 <button
                   type="button"
                   onClick={() => {
                     setShowRolePasswordModal(false);
                     setPendingRoleToSwitch(null);
+                    setRolePasswordInput("");
+                    setRolePasswordError("");
+                    setShowRecoveryOptions(false);
                   }}
                   disabled={isRoleVerifying}
                   className="flex-1 py-2 bg-slate-950 hover:bg-slate-850 border border-slate-850 text-slate-400 hover:text-white text-xs font-bold rounded-xl transition-all cursor-pointer"

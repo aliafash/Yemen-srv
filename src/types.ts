@@ -95,6 +95,7 @@ export interface Provider {
   id: string; // prov_{phone}
   name: string;
   phone: string;
+  password?: string;
   category: string;
   subCategory: string;
   city: string;
@@ -127,12 +128,14 @@ export interface Provider {
   totalEarnings: number;
   subscriptionEndDate: number;
   customFields?: Record<string, string>;
+  walletId?: string;
 }
 
 export interface PendingProvider {
   id: string; // pend_{phone}
   name: string;
   phone: string;
+  password?: string;
   category: string;
   subCategory: string;
   city: string;
@@ -228,3 +231,53 @@ export interface User {
   isVerified?: boolean;
   favorites?: string[];
 }
+
+export interface WalletAccount {
+  id: string;
+  name: string; // e.g. "جيب", "جوالي", "كريمي", "نجم"
+  accountNumber: string;
+  accountName: string;
+  isEnabled: boolean;
+}
+
+export interface PaymentSettings {
+  isPaymentEnabled: boolean;
+  showPaymentScreen: boolean;
+  linkPaymentToBookings: boolean;
+  walletAccounts: WalletAccount[];
+  requireAdvancePayment: boolean;
+  advancePaymentPercentage: number;
+  minAdvanceAmount: number;
+  maxAdvanceAmount: number;
+  autoReleasePayment: boolean;
+  releaseHours: number;
+  enableProviderWallets: boolean;
+  minWithdrawalAmount: number;
+  withdrawalFeePercentage: number;
+  autoWithdrawal: boolean;
+  showWalletInProviderProfile: boolean;
+  showTransactionHistory: boolean;
+  showPaymentReceipts: boolean;
+}
+
+export interface ProviderWallet {
+  providerId: string;
+  providerName: string;
+  phoneNumber: string;
+  currentBalance: number;
+  totalEarnings: number;
+  totalWithdrawals: number;
+  status: "active" | "suspended";
+}
+
+export interface Transaction {
+  id: string;
+  providerId?: string;
+  type: "deposit" | "withdrawal" | "payment" | "refund";
+  amount: number;
+  dateTime: number;
+  status: "completed" | "pending" | "failed";
+  description: string;
+  bookingId?: string;
+}
+

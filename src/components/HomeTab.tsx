@@ -65,6 +65,42 @@ export default function HomeTab({
 }: HomeTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>(null);
+  const [categoryBackStack, setCategoryBackStack] = useState<any[]>([]);
+  const [currentLevelCategory, setCurrentLevelCategory] = useState<any | null>(null);
+
+  const handleCategoryClick = (cat: any) => {
+    setCategoryBackStack([...categoryBackStack, currentLevelCategory]);
+    setCurrentLevelCategory(cat);
+    setSelectedCategory(cat.name);
+    setSelectedSubCategory(null);
+  };
+
+  const handleSubCategoryClick = (subName: string) => {
+    if (selectedSubCategory === subName) {
+      setSelectedSubCategory(null);
+    } else {
+      setSelectedSubCategory(subName);
+    }
+  };
+
+  const handleGoBackCategory = () => {
+    if (categoryBackStack.length === 0) return;
+    const prev = categoryBackStack[categoryBackStack.length - 1];
+    const newStack = categoryBackStack.slice(0, -1);
+    
+    setCategoryBackStack(newStack);
+    setCurrentLevelCategory(prev);
+    
+    if (prev === null) {
+      setSelectedCategory(null);
+      setSelectedSubCategory(null);
+    } else {
+      setSelectedCategory(prev.name);
+      setSelectedSubCategory(null);
+    }
+  };
+
   const [selectedCity, setSelectedCity] = useState<string>("الكل");
   const [selectedRating, setSelectedRating] = useState<number>(0);
   const [showFilters, setShowFilters] = useState(false);
@@ -150,8 +186,9 @@ export default function HomeTab({
       p.area.toLowerCase().includes(searchQuery.toLowerCase());
 
     // Category matching
-    const matchesCategory = !selectedCategory || 
-      p.category.trim().toLowerCase() === selectedCategory.trim().toLowerCase();
+    const matchesCategory = 
+      (!selectedCategory || p.category.trim().toLowerCase() === selectedCategory.trim().toLowerCase()) &&
+      (!selectedSubCategory || p.subCategory.trim().toLowerCase() === selectedSubCategory.trim().toLowerCase());
 
     // City matching
     const matchesCity = selectedCity === "الكل" || p.city === selectedCity;
@@ -341,11 +378,14 @@ export default function HomeTab({
 
             {/* Active filters indicators */}
             <div className="flex gap-2 justify-end flex-wrap">
-              {(selectedCategory || selectedCity !== "الكل" || selectedRating > 0 || searchQuery) && (
+              {(selectedCategory || selectedSubCategory || selectedCity !== "الكل" || selectedRating > 0 || searchQuery) && (
                 <button
                   onClick={() => {
                     setSearchQuery("");
                     setSelectedCategory(null);
+                    setSelectedSubCategory(null);
+                    setCategoryBackStack([]);
+                    setCurrentLevelCategory(null);
                     setSelectedCity("الكل");
                     setSelectedRating(0);
                   }}
@@ -359,32 +399,68 @@ export default function HomeTab({
         )}
       </div>
 
-      {/* Quick categories horizontal bar */}
+      {/* Quick categories horizontal bar / Drilldown */}
       <div className="space-y-2">
-        <h3 className="font-extrabold text-white text-xs text-right mb-2">أقسام الخدمات السريعة 🛠️</h3>
+        <div className="flex justify-between items-center flex-row-reverse mb-1">
+          <h3 className="font-extrabold text-white text-xs">
+            {currentLevelCategory ? `تصفح أقسام: ${currentLevelCategory.name}` : "أقسام الخدمات السريعة 🛠️"}
+          </h3>
+          {currentLevelCategory && (
+            <button
+              onClick={handleGoBackCategory}
+              className="text-[10px] font-bold text-amber-500 hover:text-amber-400 flex items-center gap-1 flex-row-reverse focus:outline-none cursor-pointer"
+            >
+              <span>الرجوع للخلف ↩️</span>
+            </button>
+          )}
+        </div>
+
         <div className="flex gap-2.5 overflow-x-auto pb-2 flex-row-reverse no-scrollbar">
-          {categories.map((cat) => {
-            const isSelected = selectedCategory === cat.name;
-            const IconComponent = getCategoryIcon(cat.icon);
-            return (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(isSelected ? null : cat.name)}
-                className={`flex flex-col items-center justify-center p-3.5 rounded-2xl border transition-all shrink-0 w-24 cursor-pointer ${
-                  isSelected
-                    ? "bg-amber-500 text-black border-amber-500 shadow-lg shadow-amber-500/10 scale-105"
-                    : "bg-slate-900/90 border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white"
-                }`}
-              >
-                <div className="p-2 rounded-xl bg-slate-950/30 mb-2">
-                  <IconComponent className={`w-5 h-5 ${isSelected ? "text-black" : "text-amber-500"}`} />
-                </div>
-                <span className="text-[10px] font-bold tracking-tight text-center truncate w-full leading-none">
-                  {cat.name}
-                </span>
-              </button>
-            );
-          })}
+          {!currentLevelCategory ? (
+            // Render 13 Main Categories
+            categories.map((cat) => {
+              const isSelected = selectedCategory === cat.name;
+              const IconComponent = getCategoryIcon(cat.icon);
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => handleCategoryClick(cat)}
+                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all shrink-0 w-24 cursor-pointer ${
+                    isSelected
+                      ? "bg-amber-500 text-black border-amber-500 shadow-lg shadow-amber-500/10 scale-105"
+                      : "bg-slate-900/90 border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white"
+                  }`}
+                >
+                  <div className="p-1.5 rounded-xl bg-slate-950/30 mb-1.5">
+                    <IconComponent className={`w-4 h-4 ${isSelected ? "text-black" : "text-amber-500"}`} />
+                  </div>
+                  <span className="text-[9px] font-extrabold tracking-tight text-center truncate w-full leading-none">
+                    {cat.name}
+                  </span>
+                </button>
+              );
+            })
+          ) : (
+            // Render sub-categories of the current selected main category
+            currentLevelCategory.subCategories.map((sub: string) => {
+              const isSelected = selectedSubCategory === sub;
+              return (
+                <button
+                  key={sub}
+                  onClick={() => handleSubCategoryClick(sub)}
+                  className={`flex items-center justify-center px-4 py-2.5 rounded-xl border transition-all shrink-0 cursor-pointer ${
+                    isSelected
+                      ? "bg-amber-500 text-black border-amber-500 shadow-lg shadow-amber-500/10 font-black"
+                      : "bg-slate-900/95 border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white font-bold"
+                  }`}
+                >
+                  <span className="text-[10px] leading-none">
+                    {sub}
+                  </span>
+                </button>
+              );
+            })
+          )}
         </div>
       </div>
 

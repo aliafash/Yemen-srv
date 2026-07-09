@@ -26,10 +26,16 @@ import {
   Award,
   Database,
   Download,
-  CreditCard
+  CreditCard,
+  Wallet,
+  Coins
 } from "lucide-react";
 import { db } from "../lib/db";
 import { customFirebaseConfig } from "../lib/firebase-custom-config";
+import { PaymentTab } from "./PaymentTab";
+import { ProviderWalletsScreen } from "./ProviderWalletsScreen";
+import { ConfirmationDialog } from "./ConfirmationDialog";
+import ReportsScreen from "./ReportsScreen";
 
 interface AdminPanelProps {
   settings: AppSettings;
@@ -55,6 +61,18 @@ export default function AdminPanel({
   onRefreshData
 }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<number>(0);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState("");
+  const [confirmDescription, setConfirmDescription] = useState("");
+  const [confirmAction, setConfirmAction] = useState<() => void>(() => () => {});
+
+  const triggerCriticalAction = (title: string, desc: string, action: () => void) => {
+    setConfirmTitle(title);
+    setConfirmDescription(desc);
+    setConfirmAction(() => action);
+    setIsConfirmOpen(true);
+  };
+
   const [rejectionReason, setRejectionReason] = useState("");
   const [isFirebaseSeeding, setIsFirebaseSeeding] = useState(false);
   const [seedingStatus, setSeedingStatus] = useState("");
@@ -350,6 +368,8 @@ export default function AdminPanel({
     { name: "نقاط الولاء", icon: Award },
     { name: "سياسة الخصوصية", icon: BookOpen },
     { name: "الأسئلة الشائعة", icon: HelpCircle },
+    { name: "نظام المدفوعات والرسوم", icon: Coins },
+    { name: "إدارة محافظ الفنيين", icon: Wallet },
     { name: "تصدير واستيراد البيانات (JSON)", icon: Database },
   ];
 
@@ -506,15 +526,17 @@ export default function AdminPanel({
 
   // Ban/Delete provider with main password confirmation
   const handleBanProvider = (provider: Provider) => {
-    const pw = prompt("⚠️ أدخل كلمة مرور الإدارة لتأكيد حظر وحذف مقدم الخدمة من الدليل العام:");
-    if (pw === (settings.adminPassword || "maher736462")) {
-      const filtered = providers.filter(p => p.id !== provider.id);
-      db.saveProviders(filtered);
-      onRefreshData();
-      alert(`✅ تم حظر وإزالة الفني بنجاح: ${provider.name}`);
-    } else if (pw !== null) {
-      alert("❌ كلمة المرور غير صحيحة، تم إلغاء العملية!");
-    }
+    triggerCriticalAction(
+      "حظر وحذف حساب فني",
+      `هل أنت متأكد تماماً من رغبتك في حظر وحذف الفني: "${provider.name}" من الدليل العام؟ سيتم تسجيل هذا الإجراء وحذف كافة بياناته ولا يمكن الرجوع فيه إلا بإعادة التسجيل.`,
+      () => {
+        const filtered = providers.filter(p => p.id !== provider.id);
+        db.saveProviders(filtered);
+        onRefreshData();
+        db.addAuditLog("PROVIDER_BANNED", "WAM_ADMIN", `تم حظر وحذف الفني: ${provider.name}`);
+        alert(`✅ تم حظر وإزالة الفني بنجاح: ${provider.name}`);
+      }
+    );
   };
 
   // Export reports to CSV/Excel printable format
@@ -1179,9 +1201,17 @@ export default function AdminPanel({
                   </div>
                   <button
                     onClick={() => {
-                      const current = db.getCategories().filter((c: any) => c.id !== cat.id);
-                      db.saveCategories(current);
-                      onRefreshData();
+                      triggerCriticalAction(
+                        "حذف قسم خدمي",
+                        `هل أنت متأكد تماماً من رغبتك في حذف القسم الخدمي الرئيسي: "${cat.name}"؟ هذا الإجراء سيؤثر على الفنيين والعملاء المسجلين تحت هذا القسم.`,
+                        () => {
+                          const current = db.getCategories().filter((c: any) => c.id !== cat.id);
+                          db.saveCategories(current);
+                          onRefreshData();
+                          db.addAuditLog("CATEGORY_DELETED", "WAM_ADMIN", `تم حذف القسم الخدمي: ${cat.name}`);
+                          alert(`🗑️ تم حذف القسم الخدمي بنجاح: ${cat.name}`);
+                        }
+                      );
                     }}
                     className="p-1.5 bg-rose-950/40 hover:bg-rose-950 border border-rose-500/20 text-rose-300 rounded cursor-pointer"
                     title="حذف القسم"
@@ -1432,65 +1462,12 @@ export default function AdminPanel({
 
         {/* TAB 10: Reports and interactive SVG analytics */}
         {activeTab === 10 && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-900 pb-3 flex-row-reverse">
-              <h4 className="font-extrabold text-white text-sm">📈 التقارير المالية والإحصائيات الحيوية لمزودي اليمن</h4>
-              <button
-                onClick={() => handleExportCSV("bookings_report", bookings)}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-black rounded text-[10px] font-bold flex items-center gap-1 cursor-pointer"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" /> تصدير تقرير الحجوزات (CSV)
-              </button>
-            </div>
-
-            {/* Micro metrics grid */}
-            <div className="grid grid-cols-4 gap-3">
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 text-center">
-                <p className="text-slate-500 text-[10px]">إجمالي الحجوزات</p>
-                <h5 className="text-white font-extrabold text-base mt-1">{bookings.length}</h5>
-              </div>
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 text-center">
-                <p className="text-slate-500 text-[10px]">الحجوزات المعلقة</p>
-                <h5 className="text-amber-500 font-extrabold text-base mt-1">
-                  {bookings.filter(b => b.status === "pending").length}
-                </h5>
-              </div>
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 text-center">
-                <p className="text-slate-500 text-[10px]">الفنيون المعتمدون</p>
-                <h5 className="text-sky-400 font-extrabold text-base mt-1">{providers.length}</h5>
-              </div>
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 text-center">
-                <p className="text-slate-500 text-[10px]">تقدير الأرباح</p>
-                <h5 className="text-emerald-400 font-extrabold text-xs mt-1">
-                  {providers.reduce((acc, curr) => acc + (curr.totalEarnings || 0), 0)} ريال
-                </h5>
-              </div>
-            </div>
-
-            {/* Custom interactive SVG charts representing month activity */}
-            <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 space-y-2">
-              <h5 className="font-bold text-white text-xs">مخطط وتيرة وحركة الحجوزات الشهرية 📊</h5>
-              <div className="h-28 w-full flex items-end gap-2.5 pt-4 px-2">
-                {[
-                  { month: "يناير", count: 12 },
-                  { month: "فبراير", count: 18 },
-                  { month: "مارس", count: 29 },
-                  { month: "أبريل", count: 24 },
-                  { month: "مايو", count: 35 },
-                  { month: "يونيو", count: 48 },
-                ].map((item, idx) => (
-                  <div key={idx} className="grow flex flex-col items-center gap-1.5 h-full justify-end">
-                    <span className="text-[8px] text-amber-500 font-bold">{item.count} حجز</span>
-                    <div 
-                      className="w-full bg-gradient-to-t from-amber-600 to-amber-500 rounded-t" 
-                      style={{ height: `${(item.count / 50) * 100}%` }}
-                    />
-                    <span className="text-[9px] text-slate-500">{item.month}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <ReportsScreen
+            bookings={bookings}
+            providers={providers}
+            settings={settings}
+            transactions={db.getTransactions()}
+          />
         )}
 
         {/* TAB 17: Loyalty Points configurations */}
@@ -1539,13 +1516,18 @@ export default function AdminPanel({
               </p>
               <button
                 type="button"
-                onClick={async () => {
-                  if (confirm("⚠️ هل أنت متأكد تماماً من رغبتك في حذف وتصفير جميع نقاط الولاء لكافة المستخدمين؟")) {
-                    const allUsers = users.map(u => ({ ...u, points: 0 }));
-                    db.saveUsers(allUsers);
-                    onRefreshData();
-                    alert("✅ تم حذف وتصفير نقاط الولاء لجميع المستخدمين بنجاح ومزامنتها سحابياً!");
-                  }
+                onClick={() => {
+                  triggerCriticalAction(
+                    "تصفير وحذف جميع نقاط الولاء",
+                    "⚠️ هل أنت متأكد تماماً من رغبتك في حذف وتصفير جميع نقاط الولاء لكافة المستخدمين؟ هذا الإجراء سيقوم بإلغاء رصيد النقاط التراكمي لجميع المشتركين ولا يمكن استعادته.",
+                    () => {
+                      const allUsers = users.map(u => ({ ...u, points: 0 }));
+                      db.saveUsers(allUsers);
+                      onRefreshData();
+                      db.addAuditLog("LOYALTY_POINTS_RESET", "WAM_ADMIN", "تم تصفير وحذف جميع نقاط الولاء لجميع المستخدمين.");
+                      alert("✅ تم حذف وتصفير نقاط الولاء لجميع المستخدمين بنجاح ومزامنتها سحابياً!");
+                    }
+                  );
                 }}
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg transition-all cursor-pointer"
               >
@@ -1555,8 +1537,18 @@ export default function AdminPanel({
           </div>
         )}
 
-        {/* TAB 20: Export and Import of core data as JSON */}
+        {/* TAB 20: Payment and Fee Controls */}
         {activeTab === 20 && (
+          <PaymentTab onRefreshData={onRefreshData} />
+        )}
+
+        {/* TAB 21: Provider Wallets Screen */}
+        {activeTab === 21 && (
+          <ProviderWalletsScreen onRefreshData={onRefreshData} />
+        )}
+
+        {/* TAB 22: Export and Import of core data as JSON */}
+        {activeTab === 22 && (
           <div className="space-y-6 text-right">
             <div className="bg-slate-950 border border-slate-850 rounded-2xl p-5 md:p-6 space-y-4">
               <h4 className="font-extrabold text-white text-sm sm:text-base flex items-center gap-2 flex-row-reverse">
@@ -1668,7 +1660,7 @@ export default function AdminPanel({
         )}
 
         {/* Fallback view for remaining tabs */}
-        {activeTab > 10 && activeTab !== 17 && activeTab !== 20 && (
+        {activeTab > 10 && activeTab !== 17 && activeTab !== 20 && activeTab !== 21 && activeTab !== 22 && (
           <div className="p-8 text-center text-slate-500 border border-dashed border-slate-800 rounded-xl space-y-3">
             <Lock className="w-10 h-10 text-slate-700 mx-auto animate-pulse" />
             <h5 className="font-bold text-white text-xs">ميزة [{ADMIN_TABS[activeTab].name}] مفعلة ونشطة تلقائياً</h5>
@@ -1685,6 +1677,15 @@ export default function AdminPanel({
         )}
 
       </div>
+
+      <ConfirmationDialog
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={confirmAction}
+        title={confirmTitle}
+        description={confirmDescription}
+        settings={settings}
+      />
     </div>
   );
 }

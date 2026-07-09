@@ -1,2 +1,2 @@
-import PaymentTab from "../components/PaymentTab";
+import { PaymentTab } from "../components/PaymentTab";
 export default PaymentTab;

@@ -47,6 +47,8 @@ export default function JoinTab({
 
   const [name, setName] = useState(currentUser?.name || "");
   const [phone, setPhone] = useState(currentUser?.phone || "");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [category, setCategory] = useState("");
   const [subCategory, setSubCategory] = useState("");
   const [city, setCity] = useState("صنعاء");
@@ -163,6 +165,9 @@ export default function JoinTab({
     // Validate fields
     if (!name.trim()) return setError("⚠️ يرجى كتابة الاسم الثلاثي الكامل.");
     if (!phone.trim() || phone.length < 9) return setError("⚠️ يرجى كتابة رقم هاتف يمني صحيح (مثال: 777644...).");
+    if (!password.trim()) return setError("⚠️ يرجى إدخال كلمة مرور لحماية حسابك.");
+    if (password.length < 6) return setError("⚠️ يجب ألا تقل كلمة المرور عن 6 خانات.");
+    if (password !== confirmPassword) return setError("⚠️ كلمتا المرور غير متطابقتين.");
     if (!category) return setError("⚠️ يرجى اختيار التخصص المهني الرئيسي.");
     if (!subCategory) return setError("⚠️ يرجى اختيار المهنة الفرعية الدقيقة.");
     if (!area.trim()) return setError("⚠️ يرجى كتابة اسم الحي أو الحارة.");
@@ -177,6 +182,7 @@ export default function JoinTab({
       id: `pend_${phone}`,
       name,
       phone,
+      password: btoa(password), // Encrypted storing
       category,
       subCategory,
       city,
@@ -303,6 +309,32 @@ export default function JoinTab({
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="مثال: 777644777"
+              className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none text-left font-mono"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Password */}
+          <div>
+            <label className="block text-slate-400 text-xs font-semibold mb-1.5">كلمة مرور الحساب:</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="اختر كلمة مرور آمنة من 6 خانات فأكثر"
+              className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none text-left font-mono"
+            />
+          </div>
+
+          {/* Confirm Password */}
+          <div>
+            <label className="block text-slate-400 text-xs font-semibold mb-1.5">تأكيد كلمة المرور:</label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="أعد كتابة كلمة المرور المحددة"
               className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none text-left font-mono"
             />
           </div>

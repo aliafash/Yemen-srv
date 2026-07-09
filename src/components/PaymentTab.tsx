@@ -1,542 +1,552 @@
-import React, { useState } from "react";
-import { AppSettings, User } from "../types";
-import { 
-  CreditCard, 
-  QrCode, 
-  Wallet, 
-  CheckCircle2, 
-  Loader2, 
-  Coins, 
-  TrendingUp, 
-  ShieldCheck, 
-  FileText, 
-  ChevronRight, 
-  Receipt,
-  Download,
-  AlertCircle
+import React, { useState, useEffect } from "react";
+import { motion } from "motion/react";
+import {
+  CreditCard,
+  ToggleLeft,
+  ToggleRight,
+  Percent,
+  Coins,
+  ShieldCheck,
+  Plus,
+  Trash2,
+  Edit2,
+  Check,
+  X,
+  AlertCircle,
+  HelpCircle,
+  Info
 } from "lucide-react";
+import { db } from "../lib/db";
+import { PaymentSettings, WalletAccount } from "../types";
 
 interface PaymentTabProps {
-  settings: AppSettings;
-  currentUser: User;
+  onRefreshData?: () => void;
 }
 
-type PaymentMethod = "wallet" | "card" | "qr";
-
-export default function PaymentTab({ settings, currentUser }: PaymentTabProps) {
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("wallet");
-  const [selectedWallet, setSelectedWallet] = useState<string>("kuraimi");
-  const [amount, setAmount] = useState<string>("5000");
-  const [phone, setPhone] = useState<string>(currentUser.phone || "");
-  const [coupon, setCoupon] = useState<string>("");
-  const [couponApplied, setCouponApplied] = useState<boolean>(false);
-  const [discount, setDiscount] = useState<number>(0);
+export const PaymentTab: React.FC<PaymentTabProps> = ({ onRefreshData }) => {
+  const [settings, setSettings] = useState<PaymentSettings>(() => db.getPaymentSettings());
+  const [isEditingAccount, setIsEditingAccount] = useState<string | null>(null);
   
-  // Card details
-  const [cardNumber, setCardNumber] = useState<string>("");
-  const [cardName, setCardName] = useState<string>("");
-  const [cardExpiry, setCardExpiry] = useState<string>("");
-  const [cardCvv, setCardCvv] = useState<string>("");
-  const [isCardFlipped, setIsCardFlipped] = useState<boolean>(false);
+  // State for adding a new wallet account
+  const [newAccountName, setNewAccountName] = useState("");
+  const [newAccountType, setNewAccountType] = useState("");
+  const [newAccountNumber, setNewAccountNumber] = useState("");
+  const [newAccountOwner, setNewAccountOwner] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  // States for flow
-  const [paymentState, setPaymentState] = useState<"idle" | "processing" | "success">("idle");
-  const [transactionId, setTransactionId] = useState<string>("");
+  const updateSettings = (updated: Partial<PaymentSettings>) => {
+    const next = { ...settings, ...updated };
+    setSettings(next);
+    db.savePaymentSettings(next);
+    db.addAuditLog(
+      "PAYMENT_SETTINGS_UPDATED",
+      "WAM_ADMIN",
+      `تم تحديث إعدادات الدفع: ${Object.keys(updated).join(", ")}`
+    );
+    if (onRefreshData) onRefreshData();
+    showToast("✅ تم حفظ التغييرات بنجاح!");
+  };
 
-  // Wallets options
-  const WALLETS = [
-    { id: "kuraimi", name: "الكريمي (ام فلوس)", merchantNo: settings.paymentMerchantKuraimi || "123456", logoText: "K", color: "from-emerald-700 to-emerald-900 border-emerald-500" },
-    { id: "mfloos", name: "ام فلوس (التضامن)", merchantNo: settings.paymentMerchantMFloos || "777644", logoText: "M", color: "from-blue-700 to-blue-900 border-blue-500" },
-    { id: "jawwal", name: "جوال بي (كاش)", merchantNo: settings.paymentMerchantJawwalPay || "987654", logoText: "J", color: "from-amber-700 to-amber-950 border-amber-500" },
-  ];
+  const showToast = (msg: string) => {
+    setSuccess(msg);
+    setTimeout(() => setSuccess(""), 4000);
+  };
 
-  const handleApplyCoupon = () => {
-    if (coupon.trim().toLowerCase() === "wam2026") {
-      setDiscount(1000);
-      setCouponApplied(true);
-      alert("✅ تم تطبيق الكوبون بنجاح! خصم بقيمة 1000 ريال يمني.");
-    } else {
-      alert("❌ الكوبون غير صالح أو منتهي الصلاحية.");
+  const toggleWalletStatus = (accountId: string) => {
+    const updatedAccounts = settings.walletAccounts.map((acc) =>
+      acc.id === accountId ? { ...acc, isEnabled: !acc.isEnabled } : acc
+    );
+    updateSettings({ walletAccounts: updatedAccounts });
+  };
+
+  const handleUpdateAccount = (id: string, number: string, name: string) => {
+    if (!number.trim() || !name.trim()) {
+      setError("⚠️ يرجى تعبئة جميع حقول المحفظة.");
+      return;
+    }
+    const updatedAccounts = settings.walletAccounts.map((acc) =>
+      acc.id === id ? { ...acc, accountNumber: number, accountName: name } : acc
+    );
+    updateSettings({ walletAccounts: updatedAccounts });
+    setIsEditingAccount(null);
+    setError("");
+  };
+
+  const handleDeleteWallet = (id: string) => {
+    if (confirm("⚠️ هل أنت متأكد من حذف هذه المحفظة نهائياً من قائمة وسائل الدفع المتاحة؟")) {
+      const updatedAccounts = settings.walletAccounts.filter((acc) => acc.id !== id);
+      updateSettings({ walletAccounts: updatedAccounts });
+      db.addAuditLog("PAYMENT_WALLET_DELETED", "WAM_ADMIN", `تم حذف المحفظة ذات الرقم التعريفي ${id}`);
     }
   };
 
-  const handlePay = (e: React.FormEvent) => {
+  const handleAddWallet = (e: React.FormEvent) => {
     e.preventDefault();
-    if (Number(amount) <= 0) {
-      alert("⚠️ يرجى إدخال مبلغ صحيح أكبر من الصفر.");
+    setError("");
+
+    if (!newAccountType.trim() || !newAccountNumber.trim() || !newAccountOwner.trim()) {
+      setError("⚠️ يرجى ملء كافة تفاصيل المحفظة الجديدة.");
       return;
     }
 
-    setPaymentState("processing");
+    const newId = `wallet_${Date.now()}`;
+    const newAcc: WalletAccount = {
+      id: newId,
+      name: newAccountType,
+      accountNumber: newAccountNumber,
+      accountName: newAccountOwner,
+      isEnabled: true
+    };
 
-    // Simulate API delay
-    setTimeout(() => {
-      setTransactionId(`TXN_${Date.now().toString().substring(6)}_${Math.random().toString(36).substring(2, 6).toUpperCase()}`);
-      setPaymentState("success");
-    }, 2500);
+    const updatedAccounts = [...settings.walletAccounts, newAcc];
+    updateSettings({ walletAccounts: updatedAccounts });
+
+    // Reset inputs
+    setNewAccountType("");
+    setNewAccountNumber("");
+    setNewAccountOwner("");
+    showToast("🎉 تم إضافة حساب المحفظة الإلكترونية بنجاح!");
   };
 
-  const finalAmount = Math.max(0, Number(amount) - discount);
-
   return (
-    <div 
-      className="max-w-md mx-auto font-sans text-right space-y-6 pb-20 select-none animate-fade-in" 
-      dir="rtl"
-      style={{ fontFamily: settings.selectedFontName }}
-    >
-      
-      {/* Header Info */}
-      <div className="flex flex-col items-center justify-center pt-6 space-y-2">
-        <div className="p-3 bg-amber-500/10 text-amber-500 rounded-2xl border border-amber-500/20 shadow-lg">
-          <CreditCard className="w-8 h-8 text-amber-500 animate-pulse" />
-        </div>
-        <h2 className="font-extrabold text-white text-lg sm:text-xl tracking-tight">
-          بوابة WAM Pay الإلكترونية 💳
-        </h2>
-        <p className="text-[10px] text-slate-400 text-center max-w-xs leading-relaxed">
-          سدد أجور الفنيين، اشترك في باقات VIP، أو اشحن رصيد محفظتك عبر المحافظ والشبكات اليمنية المعتمدة فوراً ومجاناً.
-        </p>
-      </div>
-
-      {paymentState === "idle" && (
-        <form onSubmit={handlePay} className="space-y-5">
-          
-          {/* Method Selector Tabs */}
-          <div className="grid grid-cols-3 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-850 text-xs">
-            <button
-              type="button"
-              onClick={() => setPaymentMethod("wallet")}
-              className={`py-2 px-1 rounded-lg font-bold flex flex-col items-center gap-1 cursor-pointer transition-all ${
-                paymentMethod === "wallet" ? "bg-amber-600 text-black font-extrabold" : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <Wallet className="w-4 h-4" />
-              <span>محفظة جوال</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setPaymentMethod("card")}
-              className={`py-2 px-1 rounded-lg font-bold flex flex-col items-center gap-1 cursor-pointer transition-all ${
-                paymentMethod === "card" ? "bg-amber-600 text-black font-extrabold" : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <CreditCard className="w-4 h-4" />
-              <span>بطاقة فيزا/ماستر</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setPaymentMethod("qr")}
-              className={`py-2 px-1 rounded-lg font-bold flex flex-col items-center gap-1 cursor-pointer transition-all ${
-                paymentMethod === "qr" ? "bg-amber-600 text-black font-extrabold" : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <QrCode className="w-4 h-4" />
-              <span>مسح الكود QR</span>
-            </button>
-          </div>
-
-          {/* Amount input block */}
-          <div className="bg-[#1e1e24] border border-slate-800 rounded-2xl p-5 space-y-4 shadow-md">
-            <div>
-              <label className="block text-slate-400 text-[10px] sm:text-xs font-bold mb-1">المبلغ المراد سداده (ريال يمني):</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  required
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3.5 text-center font-extrabold text-amber-500 text-lg sm:text-xl font-mono focus:border-amber-500 outline-none"
-                  placeholder="0.00"
-                />
-                <span className="absolute left-3.5 top-4.5 text-[9px] text-slate-500 font-bold">ر.ي</span>
-              </div>
-            </div>
-
-            {/* Quick amount presets */}
-            <div className="grid grid-cols-4 gap-2 text-xs">
-              {["1000", "3000", "5000", "10000"].map((preset) => (
-                <button
-                  type="button"
-                  key={preset}
-                  onClick={() => setAmount(preset)}
-                  className={`py-1.5 rounded-lg border text-[10px] font-extrabold cursor-pointer transition-all ${
-                    amount === preset 
-                      ? "bg-amber-500/20 text-amber-400 border-amber-500" 
-                      : "bg-slate-900 text-slate-400 border-slate-800 hover:text-white"
-                  }`}
-                >
-                  {Number(preset).toLocaleString()} ر.ي
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Tab 1 Content: Mobile Wallets */}
-          {paymentMethod === "wallet" && (
-            <div className="space-y-4">
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-                <label className="block text-slate-400 text-xs font-bold mb-1">اختر محفظتك المفضلة في اليمن:</label>
-                
-                <div className="space-y-2.5">
-                  {WALLETS.map((wal) => (
-                    <div
-                      key={wal.id}
-                      onClick={() => setSelectedWallet(wal.id)}
-                      className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between flex-row-reverse ${
-                        selectedWallet === wal.id 
-                          ? "bg-slate-950/80 border-amber-500 shadow-md" 
-                          : "bg-slate-950 border-slate-850 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 flex-row-reverse">
-                        <div className={`w-8 h-8 rounded-lg bg-gradient-to-tr ${wal.color} flex items-center justify-center font-extrabold text-white text-sm shadow-md`}>
-                          {wal.logoText}
-                        </div>
-                        <div className="text-right">
-                          <h5 className="font-extrabold text-white text-xs">{wal.name}</h5>
-                          <p className="text-[9px] text-slate-500 font-mono">رقم التاجر: {wal.merchantNo}</p>
-                        </div>
-                      </div>
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                        selectedWallet === wal.id ? "border-amber-500 bg-amber-500" : "border-slate-700"
-                      }`}>
-                        {selectedWallet === wal.id && <div className="w-1.5 h-1.5 bg-black rounded-full" />}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-                <label className="block text-slate-400 text-xs font-bold mb-1">رقم هاتف المشترك للمحفظة 📱:</label>
-                <input
-                  type="tel"
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-xs text-white font-mono text-center"
-                  placeholder="77XXXXXXX"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Tab 2 Content: Credit Cards (Interactive Graphic) */}
-          {paymentMethod === "card" && (
-            <div className="space-y-4">
-              
-              {/* Visa Card Mock graphic */}
-              <div 
-                className="w-full h-44 rounded-2xl bg-gradient-to-br from-indigo-900 via-purple-950 to-slate-950 p-5 relative overflow-hidden border border-slate-800 text-white font-mono shadow-2xl flex flex-col justify-between cursor-pointer group"
-                onClick={() => setIsCardFlipped(!isCardFlipped)}
-              >
-                {/* Visual accent backgrounds */}
-                <div className="absolute -top-10 -left-10 w-40 h-40 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
-                <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-
-                {!isCardFlipped ? (
-                  <>
-                    <div className="flex justify-between items-center flex-row-reverse">
-                      <span className="text-xs italic font-black text-amber-400">WAM PAY PREMIUM</span>
-                      <div className="w-9 h-7 rounded bg-amber-400/80 shadow-md border border-amber-300" />
-                    </div>
-                    
-                    <div className="space-y-1 mt-4">
-                      <p className="text-[10px] text-slate-400 tracking-wider">CARD NUMBER</p>
-                      <p className="text-sm sm:text-base font-extrabold tracking-widest text-center">
-                        {cardNumber || "••••  ••••  ••••  ••••"}
-                      </p>
-                    </div>
-
-                    <div className="flex justify-between items-end flex-row-reverse mt-2">
-                      <div className="text-right">
-                        <p className="text-[8px] text-slate-400">CARDHOLDER</p>
-                        <p className="text-[10px] font-bold tracking-wide uppercase truncate max-w-[150px]">
-                          {cardName || "YOUR NAME"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[8px] text-slate-400">EXPIRES</p>
-                        <p className="text-[10px] font-bold tracking-wide">
-                          {cardExpiry || "MM/YY"}
-                        </p>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="h-8 w-full bg-slate-900 absolute left-0 top-6" />
-                    <div className="flex justify-between items-center flex-row-reverse mt-12 pr-4 pl-4">
-                      <div className="bg-slate-300 text-black px-2 py-0.5 text-[9px] font-bold w-12 text-center rounded">
-                        {cardCvv || "•••"}
-                      </div>
-                      <p className="text-[8px] text-slate-400 tracking-wider">CVV CODE SECURITY</p>
-                    </div>
-                    <p className="text-[8px] text-slate-500 text-center mt-6">
-                      انقر على البطاقة لقلبها للواجهة الأمامية
-                    </p>
-                  </>
-                )}
-              </div>
-
-              {/* Form Inputs for card */}
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3.5">
-                <div>
-                  <label className="block text-slate-400 text-[10px] sm:text-xs font-bold mb-1">اسم حامل البطاقة كما بالإنجليزية:</label>
-                  <input
-                    type="text"
-                    required={paymentMethod === "card"}
-                    value={cardName}
-                    onChange={(e) => setCardName(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white"
-                    placeholder="MAHER AL-YAMANI"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 text-[10px] sm:text-xs font-bold mb-1">رقم بطاقة الائتمان (16 خانة):</label>
-                  <input
-                    type="text"
-                    required={paymentMethod === "card"}
-                    maxLength={19}
-                    value={cardNumber}
-                    onChange={(e) => {
-                      // format card number with spaces
-                      const val = e.target.value.replace(/\D/g, "");
-                      const matches = val.match(/\d{4,16}/g);
-                      const match = (matches && matches[0]) || "";
-                      const parts = [];
-
-                      for (let i = 0, len = match.length; i < len; i += 4) {
-                        parts.push(match.substring(i, i + 4));
-                      }
-
-                      if (parts.length > 0) {
-                        setCardNumber(parts.join("  "));
-                      } else {
-                        setCardNumber(val);
-                      }
-                    }}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white font-mono text-center"
-                    placeholder="4000  1234  5678  9010"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-slate-400 text-[10px] sm:text-xs font-bold mb-1">تاريخ الانتهاء (MM/YY):</label>
-                    <input
-                      type="text"
-                      required={paymentMethod === "card"}
-                      maxLength={5}
-                      value={cardExpiry}
-                      onChange={(e) => {
-                        let val = e.target.value.replace(/\D/g, "");
-                        if (val.length > 2) {
-                          val = val.substring(0, 2) + "/" + val.substring(2, 4);
-                        }
-                        setCardExpiry(val);
-                      }}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white font-mono text-center"
-                      placeholder="12/28"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-400 text-[10px] sm:text-xs font-bold mb-1">الرمز السري (CVV):</label>
-                    <input
-                      type="password"
-                      required={paymentMethod === "card"}
-                      maxLength={3}
-                      value={cardCvv}
-                      onFocus={() => setIsCardFlipped(true)}
-                      onBlur={() => setIsCardFlipped(false)}
-                      onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, ""))}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white font-mono text-center"
-                      placeholder="•••"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Tab 3 Content: QR Code merchant Scanner */}
-          {paymentMethod === "qr" && (
-            <div className="space-y-4">
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-center space-y-4">
-                <p className="text-[11px] text-slate-400 leading-relaxed">
-                  امسح كود الـ QR الخاص بمنصة WAM Pay من هاتفك للتحويل المباشر لمرتبات الفنيين المعتمدين.
-                </p>
-                
-                {/* Mock Visual QR code */}
-                <div className="relative w-40 h-40 mx-auto bg-white p-3 rounded-2xl shadow-xl flex items-center justify-center border-4 border-amber-500 animate-pulse">
-                  <div className="grid grid-cols-4 gap-1 w-full h-full opacity-90">
-                    {Array.from({ length: 16 }).map((_, i) => (
-                      <div 
-                        key={i} 
-                        className={`rounded-sm ${
-                          (i * 7 + 3) % 2 === 0 ? "bg-black" : "bg-transparent"
-                        }`} 
-                      />
-                    ))}
-                  </div>
-                  {/* Overlay Logo */}
-                  <div className="absolute w-10 h-10 bg-amber-500 text-black rounded-lg border-2 border-white flex items-center justify-center font-black text-xs shadow-md">
-                    WAM
-                  </div>
-                </div>
-
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-850 inline-block text-xs font-bold text-amber-500 font-mono">
-                  ID: QR-WAM-PAY-2026
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Coupon / Discount Code Block */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4.5 space-y-3">
-            <label className="block text-slate-400 text-xs font-bold mb-1">هل لديك كوبون خصم؟</label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleApplyCoupon}
-                className="bg-slate-800 hover:bg-slate-750 text-amber-400 border border-slate-700 px-4 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition-all"
-              >
-                تطبيق
-              </button>
-              <input
-                type="text"
-                value={coupon}
-                onChange={(e) => setCoupon(e.target.value)}
-                className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white text-center font-mono uppercase"
-                placeholder="مثال: WAM2026"
-              />
-            </div>
-            {couponApplied && (
-              <p className="text-[10px] text-emerald-400 font-semibold text-right">✓ كوبون WAM2026 نشط (تم خصم 1000 ريال يمني).</p>
-            )}
-          </div>
-
-          {/* Checkout billing details card */}
-          <div className="bg-slate-950 border border-slate-850 rounded-2xl p-4 text-xs space-y-2 text-slate-300">
-            <div className="flex justify-between items-center flex-row-reverse border-b border-slate-900 pb-2">
-              <span className="font-bold text-white">تفاصيل الفاتورة:</span>
-              <span className="text-[9px] text-slate-500">فاتورة دفع فوري</span>
-            </div>
-            <div className="flex justify-between items-center flex-row-reverse">
-              <span>المبلغ الإجمالي:</span>
-              <span className="font-mono">{Number(amount).toLocaleString()} ريال يمني</span>
-            </div>
-            {discount > 0 && (
-              <div className="flex justify-between items-center flex-row-reverse text-rose-400">
-                <span>كوبون الخصم:</span>
-                <span className="font-mono">- {discount.toLocaleString()} ريال يمني</span>
-              </div>
-            )}
-            <div className="flex justify-between items-center flex-row-reverse font-extrabold text-white text-sm border-t border-slate-900 pt-2 text-amber-500">
-              <span>الصافي المطلوب:</span>
-              <span className="font-mono">{finalAmount.toLocaleString()} ريال يمني</span>
-            </div>
-          </div>
-
-          {/* Secure Trust row */}
-          <div className="flex items-center justify-center gap-1.5 text-emerald-400 text-[10px] font-bold">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>بوابة مشفرة ومؤمنة بالكامل للتعامل السريع والموثوق 🔐</span>
-          </div>
-
-          {/* Submit Pay button */}
-          <button
-            type="submit"
-            className="w-full bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-black font-extrabold py-3.5 rounded-xl transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer text-xs sm:text-sm active:scale-95"
-          >
-            <CreditCard className="w-5 h-5 text-black" />
-            <span>تأكيد ودفع {finalAmount.toLocaleString()} ريال يمني فوراً</span>
-          </button>
-        </form>
+    <div className="space-y-8 text-right font-sans" dir="rtl">
+      {/* Notifications banner */}
+      {success && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-4 bg-emerald-950/40 border border-emerald-500/30 rounded-2xl text-emerald-400 text-xs font-semibold flex items-center justify-between"
+        >
+          <span>{success}</span>
+          <Check className="w-4 h-4 text-emerald-400" />
+        </motion.div>
       )}
 
-      {/* Processing Loader view */}
-      {paymentState === "processing" && (
-        <div className="bg-slate-950/60 border border-slate-850 rounded-2xl p-10 text-center space-y-6">
-          <Loader2 className="w-12 h-12 text-amber-500 animate-spin mx-auto" />
-          <div className="space-y-2">
-            <h4 className="font-extrabold text-white text-sm">جاري مراجعة طلب الدفع...</h4>
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-4 bg-rose-950/40 border border-rose-500/30 rounded-2xl text-rose-400 text-xs font-semibold flex items-center justify-between"
+        >
+          <span>{error}</span>
+          <AlertCircle className="w-4 h-4 text-rose-400" />
+        </motion.div>
+      )}
+
+      {/* SECTION 1: SYSTEM CONTROLS */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
+        <div className="flex items-center gap-3 border-b border-slate-800 pb-4 flex-row-reverse">
+          <div className="p-2.5 bg-amber-500/10 rounded-2xl">
+            <CreditCard className="w-5 h-5 text-amber-500" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white">إعدادات الدفع العامة والبوابة الإلكترونية</h3>
+            <p className="text-[10px] text-slate-400">تفعيل المعاملات المالية، ربط الحجوزات وإظهار البوابة المالية للجمهور</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Toggle 1: isPaymentEnabled */}
+          <div className="bg-slate-950/50 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between h-36">
+            <div className="flex items-start justify-between flex-row-reverse">
+              <span className="text-[11px] font-bold text-slate-300">تفعيل نظام الدفع الإلكتروني</span>
+              <button
+                onClick={() => updateSettings({ isPaymentEnabled: !settings.isPaymentEnabled })}
+                className="transition-colors focus:outline-none"
+              >
+                {settings.isPaymentEnabled ? (
+                  <ToggleRight className="w-9 h-9 text-amber-500" />
+                ) : (
+                  <ToggleLeft className="w-9 h-9 text-slate-600" />
+                )}
+              </button>
+            </div>
             <p className="text-[10px] text-slate-500 leading-relaxed">
-              يرجى الانتظار، جاري التواصل مع شبكة السداد اليمنية وتوثيق رقم المعاملة السحابية المشفرة. لا تقم بإغلاق الشاشة.
+              عند التفعيل، يمكن للعملاء سداد الدفع المقدم والرسوم وحفظ الفواتير مباشرة من خلال المحافظ الإلكترونية اليمنية المعتمدة.
+            </p>
+          </div>
+
+          {/* Toggle 2: showPaymentScreen */}
+          <div className="bg-slate-950/50 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between h-36">
+            <div className="flex items-start justify-between flex-row-reverse">
+              <span className="text-[11px] font-bold text-slate-300">إظهار شاشة الدفع للمستخدمين</span>
+              <button
+                onClick={() => updateSettings({ showPaymentScreen: !settings.showPaymentScreen })}
+                className="transition-colors focus:outline-none"
+              >
+                {settings.showPaymentScreen ? (
+                  <ToggleRight className="w-9 h-9 text-amber-500" />
+                ) : (
+                  <ToggleLeft className="w-9 h-9 text-slate-600" />
+                )}
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-500 leading-relaxed">
+              التحكم في إظهار أو إخفاء زر التمويل والمحفظة وعمليات الشراء السريعة داخل واجهات حسابات المستخدمين ومزودي الخدمة.
+            </p>
+          </div>
+
+          {/* Toggle 3: linkPaymentToBookings */}
+          <div className="bg-slate-950/50 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between h-36">
+            <div className="flex items-start justify-between flex-row-reverse">
+              <span className="text-[11px] font-bold text-slate-300">ربط الدفع التلقائي بالحجوزات</span>
+              <button
+                onClick={() => updateSettings({ linkPaymentToBookings: !settings.linkPaymentToBookings })}
+                className="transition-colors focus:outline-none"
+              >
+                {settings.linkPaymentToBookings ? (
+                  <ToggleRight className="w-9 h-9 text-amber-500" />
+                ) : (
+                  <ToggleLeft className="w-9 h-9 text-slate-600" />
+                )}
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-500 leading-relaxed">
+              إجبار العملاء على تسديد نسبة العربون المتفق عليها لتثبيت وتفعيل مواعيد حجز الخدمات وحماية حقوق مقدمي الخدمة من التلاعب.
             </p>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Success Receipt view */}
-      {paymentState === "success" && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-center space-y-5 shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1.5 bg-emerald-500" />
-          
-          <CheckCircle2 className="w-14 h-14 text-emerald-500 mx-auto animate-bounce mt-4" />
-          
-          <div className="space-y-1">
-            <h3 className="font-extrabold text-white text-base">🎉 تم الدفع والسداد بنجاح!</h3>
-            <p className="text-[10px] text-emerald-400 font-bold">معاملة موثقة ومقيدة بمركز المقاصة الإلكتروني</p>
+      {/* SECTION 2: ADMIN WALLET ACCOUNTS */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
+        <div className="flex items-center gap-3 border-b border-slate-800 pb-4 flex-row-reverse">
+          <div className="p-2.5 bg-blue-500/10 rounded-2xl">
+            <Coins className="w-5 h-5 text-blue-400" />
           </div>
-
-          {/* Receipts specs */}
-          <div className="bg-slate-950 rounded-xl p-4 border border-slate-850 text-xs text-right space-y-2.5 text-slate-300 font-mono">
-            <div className="flex items-center gap-1 flex-row-reverse border-b border-slate-900 pb-1.5 text-slate-400">
-              <Receipt className="w-4 h-4 text-amber-500" />
-              <span className="font-extrabold text-white text-[10px]">إيصال استلام الكتروني WAM Pay</span>
-            </div>
-            <div className="flex justify-between flex-row-reverse">
-              <span className="text-slate-500">رقم الحركة:</span>
-              <span className="text-white font-bold">{transactionId}</span>
-            </div>
-            <div className="flex justify-between flex-row-reverse">
-              <span className="text-slate-500">طريقة الدفع:</span>
-              <span className="text-white font-bold">
-                {paymentMethod === "wallet" ? "محفظة الهاتف الذكي" : paymentMethod === "card" ? "بطاقة ائتمانية" : "رمز استجابة سريعة QR"}
-              </span>
-            </div>
-            {paymentMethod === "wallet" && (
-              <div className="flex justify-between flex-row-reverse">
-                <span className="text-slate-500">محفظة المحول:</span>
-                <span className="text-white font-bold">{selectedWallet === "kuraimi" ? "الكريمي ام فلوس" : selectedWallet === "mfloos" ? "التضامن ام فلوس" : "جوال كاش"}</span>
-              </div>
-            )}
-            <div className="flex justify-between flex-row-reverse">
-              <span className="text-slate-500">تاريخ الحركة:</span>
-              <span className="text-white font-bold">{new Date().toLocaleString("ar-YE")}</span>
-            </div>
-            <div className="flex justify-between flex-row-reverse border-t border-slate-900 pt-2 font-extrabold text-amber-500">
-              <span>المبلغ المدفوع:</span>
-              <span>{finalAmount.toLocaleString()} ريال يمني</span>
-            </div>
+          <div>
+            <h3 className="text-sm font-bold text-white">إدارة حسابات المحافظ وبنك الإيداع الرئيسي</h3>
+            <p className="text-[10px] text-slate-400">تعديل وتفعيل حسابات استلام المستحقات (جيب، جوالي، كريمي، نجم)</p>
           </div>
-
-          {/* Controls */}
-          <div className="grid grid-cols-2 gap-3.5">
-            <button
-              onClick={() => setPaymentState("idle")}
-              className="bg-slate-800 hover:bg-slate-750 text-white font-bold py-3 px-4 rounded-xl text-xs cursor-pointer transition-all"
-            >
-              دفع عملية أخرى
-            </button>
-            <button
-              onClick={() => {
-                alert("✅ تم حفظ وتنزيل إيصال السداد على ذاكرة جهازك بصيغة PDF بنجاح!");
-              }}
-              className="bg-amber-500 hover:bg-amber-400 text-black font-extrabold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-1 cursor-pointer transition-all active:scale-95"
-            >
-              <Download className="w-4 h-4 text-black" />
-              <span>تحميل الإيصال</span>
-            </button>
-          </div>
-
         </div>
-      )}
 
+        {/* Existing Accounts List */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {settings.walletAccounts.map((acc) => {
+            const isEditing = isEditingAccount === acc.id;
+            return (
+              <div
+                key={acc.id}
+                className={`bg-slate-950 border rounded-2xl p-4 transition-all duration-300 flex flex-col justify-between ${
+                  acc.isEnabled ? "border-slate-800/80 hover:border-amber-500/20" : "border-slate-900/50 opacity-60"
+                }`}
+              >
+                <div className="flex justify-between items-start flex-row-reverse">
+                  <div className="flex items-center gap-2 flex-row-reverse">
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-900 text-amber-500 border border-amber-500/10">
+                      {acc.name}
+                    </span>
+                    <span className="text-xs font-bold text-white">حساب {acc.name} الرسمي</span>
+                  </div>
+                  
+                  <div className="flex gap-1.5 items-center">
+                    <button
+                      onClick={() => toggleWalletStatus(acc.id)}
+                      className={`text-[10px] px-2 py-0.5 rounded transition-all ${
+                        acc.isEnabled ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-800 text-slate-400"
+                      }`}
+                    >
+                      {acc.isEnabled ? "مفعّل" : "معطّل"}
+                    </button>
+                    <button
+                      onClick={() => setIsEditingAccount(isEditing ? null : acc.id)}
+                      className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteWallet(acc.id)}
+                      className="p-1 hover:bg-rose-950 rounded text-slate-500 hover:text-rose-400"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Account Details Form/Text */}
+                <div className="mt-4 space-y-3">
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <input
+                        id={`input-no-${acc.id}`}
+                        type="text"
+                        defaultValue={acc.accountNumber}
+                        placeholder="رقم الحساب أو الهاتف"
+                        className="w-full bg-slate-900 border border-slate-800 focus:border-amber-500 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none font-mono"
+                      />
+                      <input
+                        id={`input-name-${acc.id}`}
+                        type="text"
+                        defaultValue={acc.accountName}
+                        placeholder="اسم صاحب الحساب المستفيد"
+                        className="w-full bg-slate-900 border border-slate-800 focus:border-amber-500 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none"
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingAccount(null)}
+                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] rounded-lg"
+                        >
+                          إلغاء
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const num = (document.getElementById(`input-no-${acc.id}`) as HTMLInputElement)?.value;
+                            const name = (document.getElementById(`input-name-${acc.id}`) as HTMLInputElement)?.value;
+                            handleUpdateAccount(acc.id, num, name);
+                          }}
+                          className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[10px] rounded-lg"
+                        >
+                          حفظ
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-900/60 p-3 rounded-xl space-y-1.5 text-xs font-mono">
+                      <div className="flex justify-between flex-row-reverse text-slate-400">
+                        <span>رقم الحساب/المحفظة:</span>
+                        <span className="text-white text-left font-bold">{acc.accountNumber}</span>
+                      </div>
+                      <div className="flex justify-between flex-row-reverse text-slate-400">
+                        <span>الاسم المعتمد:</span>
+                        <span className="text-white text-left font-bold truncate max-w-[150px]">{acc.accountName}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Add New Wallet Account form */}
+        <form onSubmit={handleAddWallet} className="bg-slate-950/40 border border-slate-800/70 rounded-2xl p-4 mt-4 space-y-3">
+          <span className="text-xs font-bold text-slate-300 block mb-1">إضافة وسيلة دفع/محفظة مالية جديدة:</span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <input
+              type="text"
+              value={newAccountType}
+              onChange={(e) => setNewAccountType(e.target.value)}
+              placeholder="مثال: محفظة النجم، محفظة كاش"
+              className="bg-slate-900 border border-slate-800 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+            />
+            <input
+              type="text"
+              value={newAccountNumber}
+              onChange={(e) => setNewAccountNumber(e.target.value)}
+              placeholder="رقم الهاتف أو رقم الحساب"
+              className="bg-slate-900 border border-slate-800 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white focus:outline-none font-mono"
+            />
+            <input
+              type="text"
+              value={newAccountOwner}
+              onChange={(e) => setNewAccountOwner(e.target.value)}
+              placeholder="الاسم الكامل للمستفيد"
+              className="bg-slate-900 border border-slate-800 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+            />
+          </div>
+          <div className="flex justify-end pt-1">
+            <button
+              type="submit"
+              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 flex-row-reverse"
+            >
+              <Plus className="w-4 h-4" />
+              إدراج محفظة جديدة
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* SECTION 3: ADVANCE PAYMENTS */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
+        <div className="flex items-center gap-3 border-b border-slate-800 pb-4 flex-row-reverse">
+          <div className="p-2.5 bg-emerald-500/10 rounded-2xl">
+            <Percent className="w-5 h-5 text-emerald-400" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white">إعدادات الرسوم والدفع المقدم (العربون)</h3>
+            <p className="text-[10px] text-slate-400">تحديد نسبة العربون المفروضة وحماية المعاملات وفترة الإفراج التلقائي للفني</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            {/* Require Advance Payment Toggle */}
+            <div className="flex items-center justify-between bg-slate-950/30 p-3 rounded-xl border border-slate-800/50 flex-row-reverse">
+              <div>
+                <span className="text-xs font-bold text-white block">طلب الدفع المقدم كعربون أساسي</span>
+                <span className="text-[10px] text-slate-500">فرض سداد مقدم قبل إتاحة التواصل للعميل</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => updateSettings({ requireAdvancePayment: !settings.requireAdvancePayment })}
+                className="focus:outline-none"
+              >
+                {settings.requireAdvancePayment ? (
+                  <ToggleRight className="w-8 h-8 text-emerald-500" />
+                ) : (
+                  <ToggleLeft className="w-8 h-8 text-slate-600" />
+                )}
+              </button>
+            </div>
+
+            {/* Advance payment percentage */}
+            <div className="space-y-1.5">
+              <label className="text-xs text-slate-400 font-semibold flex justify-between flex-row-reverse">
+                <span>نسبة الدفع المقدم من قيمة الخدمة:</span>
+                <span className="text-emerald-400 font-bold">{settings.advancePaymentPercentage}%</span>
+              </label>
+              <input
+                type="range"
+                min="10"
+                max="100"
+                step="5"
+                value={settings.advancePaymentPercentage}
+                onChange={(e) => updateSettings({ advancePaymentPercentage: parseInt(e.target.value) })}
+                className="w-full accent-emerald-500 cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] text-slate-600 font-mono flex-row-reverse">
+                <span>100% (دفع كامل)</span>
+                <span>50%</span>
+                <span>10% (حد أدنى)</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {/* Minimum and Maximum values */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-slate-400 text-[10px] mb-1 font-semibold">الحد الأدنى للدفع المقدم (ريال):</label>
+                <input
+                  type="number"
+                  value={settings.minAdvanceAmount}
+                  onChange={(e) => updateSettings({ minAdvanceAmount: parseInt(e.target.value) || 0 })}
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white focus:outline-none text-left font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-400 text-[10px] mb-1 font-semibold">الحد الأقصى للدفع المقدم (ريال):</label>
+                <input
+                  type="number"
+                  value={settings.maxAdvanceAmount}
+                  onChange={(e) => updateSettings({ maxAdvanceAmount: parseInt(e.target.value) || 0 })}
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white focus:outline-none text-left font-mono"
+                />
+              </div>
+            </div>
+
+            {/* Auto release settings */}
+            <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-3 space-y-3">
+              <div className="flex items-center justify-between flex-row-reverse">
+                <div>
+                  <span className="text-xs font-bold text-white block">الإفراج التلقائي عن الدفعة للفني</span>
+                  <span className="text-[9px] text-slate-500">تحويل المبلغ لمحفظة الفني بعد انقضاء الوقت</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateSettings({ autoReleasePayment: !settings.autoReleasePayment })}
+                  className="focus:outline-none"
+                >
+                  {settings.autoReleasePayment ? (
+                    <ToggleRight className="w-7 h-7 text-emerald-400" />
+                  ) : (
+                    <ToggleLeft className="w-7 h-7 text-slate-600" />
+                  )}
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-slate-400 text-[10px] mb-1 font-semibold flex justify-between flex-row-reverse">
+                  <span>مدة الإفراج التلقائي (بالساعات بعد موعد الخدمة):</span>
+                  <span className="text-white font-bold">{settings.releaseHours} ساعة</span>
+                </label>
+                <input
+                  type="number"
+                  value={settings.releaseHours}
+                  onChange={(e) => updateSettings({ releaseHours: parseInt(e.target.value) || 0 })}
+                  className="w-full bg-slate-900 border border-slate-800 focus:border-amber-500 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none text-left font-mono"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 4: TECHNICIAN WALLETS SETTINGS */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
+        <div className="flex items-center gap-3 border-b border-slate-800 pb-4 flex-row-reverse">
+          <div className="p-2.5 bg-purple-500/10 rounded-2xl">
+            <ShieldCheck className="w-5 h-5 text-purple-400" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white">إعدادات سحب الأرباح ومحافظ الفنيين</h3>
+            <p className="text-[10px] text-slate-400">إدارة القيود المالية وسحب مستحقات مقدمي الخدمة المعتمدين</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Toggle 1: enableProviderWallets */}
+          <div className="bg-slate-950/30 border border-slate-800/60 rounded-2xl p-4 flex flex-col justify-between h-32">
+            <div className="flex justify-between items-start flex-row-reverse">
+              <span className="text-xs font-bold text-white">تفعيل محافظ الفنيين</span>
+              <button
+                type="button"
+                onClick={() => updateSettings({ enableProviderWallets: !settings.enableProviderWallets })}
+                className="focus:outline-none"
+              >
+                {settings.enableProviderWallets ? (
+                  <ToggleRight className="w-8 h-8 text-amber-500" />
+                ) : (
+                  <ToggleLeft className="w-8 h-8 text-slate-600" />
+                )}
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-500">تمكين مقدمي الخدمات من تجميع مستحقاتهم وأرباحهم في محافظهم الإلكترونية الفردية.</p>
+          </div>
+
+          {/* Min withdrawal amount */}
+          <div className="bg-slate-950/30 border border-slate-800/60 rounded-2xl p-4 flex flex-col justify-between h-32">
+            <span className="text-xs font-bold text-white block mb-1">الحد الأدنى لطلب السحب:</span>
+            <div className="relative mt-2">
+              <input
+                type="number"
+                value={settings.minWithdrawalAmount}
+                onChange={(e) => updateSettings({ minWithdrawalAmount: parseInt(e.target.value) || 0 })}
+                className="w-full bg-slate-900 border border-slate-800 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white focus:outline-none pl-12 text-left font-mono"
+              />
+              <span className="absolute left-3 top-2.5 text-[9px] text-slate-500 font-bold">ريال</span>
+            </div>
+            <p className="text-[10px] text-slate-500 mt-2">المبلغ الأدنى المطلوب توفره في رصيد محفظة الفني لتمكينه من طلب تسييل المستحقات.</p>
+          </div>
+
+          {/* Withdrawal fee percentage */}
+          <div className="bg-slate-950/30 border border-slate-800/60 rounded-2xl p-4 flex flex-col justify-between h-32">
+            <span className="text-xs font-bold text-white block mb-1">رسوم السحب الإدارية (%):</span>
+            <div className="relative mt-2">
+              <input
+                type="number"
+                step="0.1"
+                value={settings.withdrawalFeePercentage}
+                onChange={(e) => updateSettings({ withdrawalFeePercentage: parseFloat(e.target.value) || 0 })}
+                className="w-full bg-slate-900 border border-slate-800 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white focus:outline-none pl-8 text-left font-mono"
+              />
+              <span className="absolute left-3 top-2.5 text-[11px] text-slate-400 font-bold">%</span>
+            </div>
+            <p className="text-[10px] text-slate-500 mt-2">النسبة المقتطعة تلقائياً من الفني لصالح المنصة عند كل عملية سحب أرباح إلكترونية ناجحة.</p>
+          </div>
+        </div>
+
+        {/* Informative Security Label */}
+        <div className="p-3 bg-blue-950/30 border border-blue-500/20 rounded-2xl flex items-center gap-3 flex-row-reverse">
+          <Info className="w-5 h-5 text-blue-400 shrink-0" />
+          <p className="text-[10px] text-blue-300 leading-relaxed text-right">
+            تخضع كافة التحويلات وسحوبات المحافظ للتحقق والتدقيق عبر <strong>سجل الأنشطة والأمان</strong> المسجل تلقائياً. لا يمكن التراجع عن المعاملات المؤكدة.
+          </p>
+        </div>
+      </div>
     </div>
   );
-}
+};

@@ -8,7 +8,10 @@ import {
   Notification, 
   User,
   PresetPalette,
-  SubscriptionPlan
+  SubscriptionPlan,
+  PaymentSettings,
+  ProviderWallet,
+  Transaction
 } from "../types";
 import { 
   collection as fsCollection, 
@@ -121,15 +124,60 @@ const DEFAULT_SETTINGS: AppSettings = {
 };
 
 const SEED_CATEGORIES = [
-  { id: "maintenance", name: "صيانة منزلية", description: "أشغال السباكة، الكهرباء، النجارة، صيانة المكيفات والأجهزة المنزلية", icon: "Home", subCategories: ["سباكة", "كهرباء", "نجارة", "صيانة مكيفات", "تركيب ستلايت"] },
-  { id: "health", name: "صحة ورعاية", description: "الأطباء المنزليون، الممرضون والممرضات، العلاج الطبيعي ورعاية كبار السن والأطفال", icon: "HeartPulse", subCategories: ["طبيب منزلي", "ممرض منزلي", "علاج طبيعي", "رعاية أطفال", "رعاية كبار سن"] },
-  { id: "education", name: "تعليم وتدريب", description: "مدرسون خصوصيون لجميع المواد والمناهج اليمنية، دورات تقنية، لغات وموسيقى", icon: "GraduationCap", subCategories: ["مدرس لغة عربية", "مدرس رياضيات", "مدرس لغة إنجليزية", "برمجة وحاسوب", "تأسيس أطفال"] },
-  { id: "transport", name: "نقل وخدمات", description: "توصيل طرود، نقل عفش وأثاث، وايتات مياه وصهاريج، توصيل طلبات سريعة", icon: "Truck", subCategories: ["نقل عفش وأثاث", "وايت ماء", "توصيل طرود", "سائق تاكسي", "رافعات وسحب"] },
-  { id: "tech", name: "خدمات تقنية", description: "صيانة تلفونات وكمبيوترات، تمديد شبكات إنترنت وتفعيل قنوات وبث منزلي", icon: "Cpu", subCategories: ["صيانة جوالات", "صيانة كمبيوتر", "تركيب شبكات", "كاميرات مراقبة", "برمجة وتصميم"] },
-  { id: "other", name: "أخرى", description: "الطبخ المنزلي، الخياطة والتطريز، التنظيف والتعقيم، تنسيق الحدائق وغيرها", icon: "Briefcase", subCategories: ["خياطة وتطريز", "طبخ منزلي وتجهيز بوفيه", "تنظيف منازل وتعقيم", "حلاقة رجالي كوافير", "صيانة سيارات متنقلة"] },
+  { id: "construction", name: "البناء والعقارات", description: "مقاولات، تشطيب، دهان، عزل، حدادة، زجاج، بيع وإدارة عقارات وتراخيص", icon: "Building", subCategories: ["مقاولات", "تشطيب", "دهان", "عزل", "حدادة", "زجاج", "بيع عقارات", "إدارة عقارات", "تقييم عقاري", "توثيق عقود", "تراخيص"] },
+  { id: "maintenance", name: "الصيانة العامة", description: "صيانة المنازل، الأجهزة الكهربائية، الإلكترونيات، المولدات، الكاميرات والمصاعد", icon: "Wrench", subCategories: ["منازل", "أجهزة كهربائية", "إلكترونيات", "مولدات", "كاميرات", "شبكات", "مصاعد", "بوابات", "أثاث"] },
+  { id: "cooking", name: "المأكولات والحلويات والطبخ", description: "طباخون، خبازون، حلويات، كيك، معجنات، مطاعم وتزيين المأكولات", icon: "ChefHat", subCategories: ["طباخون", "خبازون", "حلويات", "كيك", "معجنات", "مطاعم", "مشروبات", "تزيين", "تغذية"] },
+  { id: "health", name: "الصحة والتمريض والطب", description: "أطباء، تمريض منزلي، صيدلة، علاج طبيعي، مختبرات ورعاية مسنين وقابلات", icon: "HeartPulse", subCategories: ["أطباء", "تمريض", "صيدلة", "علاج طبيعي", "مختبرات", "إسعافات", "رعاية مسنين", "قابلة", "تركيبات تقويمية"] },
+  { id: "education", name: "التعليم والتدريس", description: "مدرسين خصوصيين، تدريب، تحفيظ قرآن، مراجعة اختبارات وتربية خاصة", icon: "GraduationCap", subCategories: ["مدرسين", "تدريب", "تحفيظ قرآن", "مراجعة اختبارات", "تربية خاصة", "إرشاد أكاديمي"] },
+  { id: "law", name: "المحاماة والاستشارات القانونية", description: "محاماة، استشارات قانونية، كتابة عدل، تحكيم وإعداد تقارير الخبراء", icon: "Scale", subCategories: ["محامي", "مستشار قانوني", "كاتب عدل", "محكم", "خبير تقارير"] },
+  { id: "engineering", name: "الهندسة والاستشارات الفنية", description: "مهندسين، تصميم ديكور، تصميم جرافيك، خبراء سلامة ومساحة أراضي", icon: "Compass", subCategories: ["مهندسين", "مصمم ديكور", "مصمم جرافيك", "خبير سلامة", "استشارات", "مساح أراضي"] },
+  { id: "transport", name: "النقل والخدمات اللوجستية", description: "نقل بضائع وعفش، تأجير سيارات ومعدات، توصيل طلبات ونقل ركاب", icon: "Truck", subCategories: ["نقل بضائع", "نقل عفش", "تأجير سيارات", "توصيل طلبات", "شحن", "نقل ركاب", "تأجير معدات", "إدارة أساطيل"] },
+  { id: "cleaning", name: "التنظيف والتعقيم ومكافحة الحشرات", description: "تنظيف منازل وتعقيم، مكافحة حشرات وقوارض وحشرات الخشب والمزارع", icon: "Sparkles", subCategories: ["تنظيف", "تعقيم", "مكافحة حشرات", "مكافحة قوارض", "مكافحة حشرات خشب"] },
+  { id: "tailoring", name: "الخياطة والتفصيل", description: "خياطة ملابس، تفصيل بدلات وستائر، تطريز وتصليح وحقائب وتنجيد", icon: "Scissors", subCategories: ["خياطة ملابس", "تفصيل بدلات", "تفصيل ستائر", "تطريز", "تصليح", "تفصيل حقائب", "تنجيد"] },
+  { id: "it", name: "تقنية المعلومات والبرمجة", description: "برمجة تطبيقات، تصميم مواقع، أمن سيبراني، تسويق وصيانة هواتف وشبكات", icon: "Code", subCategories: ["برمجة تطبيقات", "تصميم مواقع", "تطوير ألعاب", "تصميم جرافيك", "تصوير", "صيانة هواتف", "تركيب شبكات", "أمن سيبراني", "تسويق إلكتروني", "ذكاء اصطناعي"] },
+  { id: "flowers", name: "خدمات الزهور والهدايا والتنسيق", description: "تنسيق زهور ومناسبات، باقات هدايا وتنسيق مكاتب وفنادق", icon: "Flower", subCategories: ["تنسيق زهور", "تنسيق مناسبات", "باقات هدايا", "تنسيق مكاتب وفنادق"] },
+  { id: "other", name: "أخرى", description: "للخدمات والمهن غير المدرجة في القوائم السابقة", icon: "Grid", subCategories: ["أخرى"] }
 ];
 
-const SEED_PROVIDERS: Provider[] = [];
+const SEED_PROVIDERS: Provider[] = [
+  {
+    id: "prov_777703195",
+    name: "أمين الغرباني",
+    phone: "777703195",
+    password: btoa("123456"),
+    category: "الصيانة العامة",
+    subCategory: "كهرباء",
+    city: "صنعاء",
+    area: "منطقة الدائري",
+    address: "جوار مدرسة أسماء للبنات",
+    description: "فني كهربائي متخصص في صيانة التمديدات المنزلية، الأجهزة الكهربائية والمولدات بخبرة تزيد عن 10 سنوات في صنعاء.",
+    rating: 5.0,
+    reviewCount: 1,
+    isVerified: true,
+    isPinned: true,
+    isRecommended: true,
+    isSubscribed: true,
+    imageUrl: "https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=400",
+    coverImageUrl: "https://images.unsplash.com/photo-1581092921461-eab62e97a780?w=800",
+    portfolioImages: [],
+    latitude: 15.3533,
+    longitude: 44.1952,
+    isAvailable: true,
+    price: 3000,
+    workingHours: "8:00 ص - 10:00 م",
+    services: ["صيانة كهرباء منازل", "تركيب مولدات", "صيانة لوحات توزيع الكهرباء"],
+    skills: "تمديدات كهربائية، صيانة لوحات تحكم، تركيب أنظمة طاقة شمسية",
+    deviceId: "device_amin_777703195",
+    gender: "male",
+    photoType: "personal",
+    timestamp: Date.now() - 1000 * 60 * 60 * 24 * 3, // 3 days ago
+    bookingsCount: 3,
+    viewsCount: 45,
+    callsCount: 12,
+    totalEarnings: 9000,
+    subscriptionEndDate: Date.now() + 1000 * 60 * 60 * 24 * 365
+  }
+];
 
 const SEED_BANNERS = [
   { id: "banner_1", title: "مرحباً بكم في بوابة اليمن للخدمات", text: "دليلك الشامل لطلب أمهر الفنيين وأطباء المنازل والمدربين في جميع المدن اليمنية.", type: "text", imageUrl: "https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=800" },
@@ -212,6 +260,75 @@ class ReactiveDB {
     if (!localStorage.getItem("wam_reviews")) {
       localStorage.setItem("wam_reviews", JSON.stringify([]));
     }
+    if (!localStorage.getItem("wam_payment_settings")) {
+      const defaultPaymentSettings = {
+        isPaymentEnabled: true,
+        showPaymentScreen: true,
+        linkPaymentToBookings: true,
+        walletAccounts: [
+          { id: "kuraimi", name: "كريمي", accountNumber: "123456", accountName: "شركة WAM للخدمات", isEnabled: true },
+          { id: "jeeb", name: "جيب", accountNumber: "777644", accountName: "مؤسسة WAM اليمن", isEnabled: true },
+          { id: "jawwal", name: "جوالي", accountNumber: "987654", accountName: "إدارة WAM", isEnabled: true },
+          { id: "mfloos", name: "أم فلوس", accountNumber: "777644", accountName: "كل خدمات اليمن", isEnabled: true }
+        ],
+        requireAdvancePayment: true,
+        advancePaymentPercentage: 15,
+        minAdvanceAmount: 500,
+        maxAdvanceAmount: 100000,
+        autoReleasePayment: true,
+        releaseHours: 24,
+        enableProviderWallets: true,
+        minWithdrawalAmount: 2000,
+        withdrawalFeePercentage: 2,
+        autoWithdrawal: false,
+        showWalletInProviderProfile: true,
+        showTransactionHistory: true,
+        showPaymentReceipts: true
+      };
+      localStorage.setItem("wam_payment_settings", JSON.stringify(defaultPaymentSettings));
+    }
+    if (!localStorage.getItem("wam_provider_wallets")) {
+      const defaultWallets = [
+        {
+          providerId: "prov_777703195",
+          providerName: "أمين الغرباني",
+          phoneNumber: "777703195",
+          currentBalance: 9000,
+          totalEarnings: 9000,
+          totalWithdrawals: 0,
+          status: "active"
+        }
+      ];
+      localStorage.setItem("wam_provider_wallets", JSON.stringify(defaultWallets));
+    }
+    if (!localStorage.getItem("wam_transactions")) {
+      const defaultTransactions = [
+        {
+          id: "tx_1",
+          providerId: "prov_777703195",
+          type: "deposit",
+          amount: 5000,
+          dateTime: Date.now() - 1000 * 60 * 60 * 24 * 2,
+          status: "completed",
+          description: "شحن رصيد البداية - محفظة ترحيبية WAM",
+          bookingId: ""
+        },
+        {
+          id: "tx_2",
+          providerId: "prov_777703195",
+          type: "payment",
+          amount: 4000,
+          dateTime: Date.now() - 1000 * 60 * 60 * 24,
+          status: "completed",
+          description: "أرباح حجز خدمة صيانة كهربائية مؤكدة",
+          bookingId: "booking_1"
+        }
+      ];
+      localStorage.setItem("wam_transactions", JSON.stringify(defaultTransactions));
+    }
+    if (!localStorage.getItem("wam_audit_logs")) {
+      localStorage.setItem("wam_audit_logs", JSON.stringify([]));
+    }
     if (!localStorage.getItem("wam_users")) {
       // Create owner as seed user
       const ownerUser: User = {
@@ -222,7 +339,15 @@ class ReactiveDB {
         role: "owner",
         deviceId: "android_id_owner"
       };
-      localStorage.setItem("wam_users", JSON.stringify([ownerUser]));
+      const providerUser: User = {
+        id: "prov_777703195",
+        name: "أمين الغرباني",
+        phone: "777703195",
+        area: "منطقة الدائري",
+        role: "provider",
+        deviceId: "device_amin_777703195"
+      };
+      localStorage.setItem("wam_users", JSON.stringify([ownerUser, providerUser]));
     }
   }
 
@@ -246,7 +371,11 @@ class ReactiveDB {
       "banners",
       "faqs",
       "users",
-      "reviews"
+      "reviews",
+      "provider_wallets",
+      "transactions",
+      "audit_logs",
+      "payment_settings"
     ];
 
     collectionsToSync.forEach((colName) => {
@@ -352,7 +481,7 @@ class ReactiveDB {
           await setDoc(doc(firestore, "notifications", not.id), not);
         }
 
-        // 6. seed owner user
+        // 6. seed owner user and Amin Al-Gharbani
         const ownerUser = {
           id: "owner_wam2026",
           name: "WAM2026",
@@ -362,6 +491,94 @@ class ReactiveDB {
           deviceId: "android_id_owner"
         };
         await setDoc(doc(firestore, "users", "owner_wam2026"), ownerUser);
+
+        const providerUser = {
+          id: "prov_777703195",
+          name: "أمين الغرباني",
+          phone: "777703195",
+          area: "منطقة الدائري",
+          role: "provider",
+          deviceId: "device_amin_777703195"
+        };
+        await setDoc(doc(firestore, "users", "prov_777703195"), providerUser);
+
+        // 7. Seed providers (Amin Al-Gharbani)
+        for (const prov of SEED_PROVIDERS) {
+          await setDoc(doc(firestore, "providers", prov.id), prov);
+        }
+
+        // 8. Seed payment_settings
+        const defaultPaymentSettings = {
+          isPaymentEnabled: true,
+          showPaymentScreen: true,
+          linkPaymentToBookings: true,
+          walletAccounts: [
+            { id: "kuraimi", name: "كريمي", accountNumber: "123456", accountName: "شركة WAM للخدمات", isEnabled: true },
+            { id: "jeeb", name: "جيب", accountNumber: "777644", accountName: "مؤسسة WAM اليمن", isEnabled: true },
+            { id: "jawwal", name: "جوالي", accountNumber: "987654", accountName: "إدارة WAM", isEnabled: true },
+            { id: "mfloos", name: "أم فلوس", accountNumber: "777644", accountName: "كل خدمات اليمن", isEnabled: true }
+          ],
+          requireAdvancePayment: true,
+          advancePaymentPercentage: 15,
+          minAdvanceAmount: 500,
+          maxAdvanceAmount: 100000,
+          autoReleasePayment: true,
+          releaseHours: 24,
+          enableProviderWallets: true,
+          minWithdrawalAmount: 2000,
+          withdrawalFeePercentage: 2,
+          autoWithdrawal: false,
+          showWalletInProviderProfile: true,
+          showTransactionHistory: true,
+          showPaymentReceipts: true
+        };
+        await setDoc(doc(firestore, "settings", "PAYMENT_SETTINGS"), defaultPaymentSettings);
+
+        // 9. Seed provider_wallets
+        const defaultWallet = {
+          providerId: "prov_777703195",
+          providerName: "أمين الغرباني",
+          phoneNumber: "777703195",
+          currentBalance: 9000,
+          totalEarnings: 9000,
+          totalWithdrawals: 0,
+          status: "active"
+        };
+        await setDoc(doc(firestore, "provider_wallets", "prov_777703195"), defaultWallet);
+
+        // 10. Seed transactions
+        const tx1 = {
+          id: "tx_1",
+          providerId: "prov_777703195",
+          type: "deposit",
+          amount: 5000,
+          dateTime: Date.now() - 1000 * 60 * 60 * 24 * 2,
+          status: "completed",
+          description: "شحن رصيد البداية - محفظة ترحيبية WAM",
+          bookingId: ""
+        };
+        const tx2 = {
+          id: "tx_2",
+          providerId: "prov_777703195",
+          type: "payment",
+          amount: 4000,
+          dateTime: Date.now() - 1000 * 60 * 60 * 24,
+          status: "completed",
+          description: "أرباح حجز خدمة صيانة كهربائية مؤكدة",
+          bookingId: "booking_1"
+        };
+        await setDoc(doc(firestore, "transactions", "tx_1"), tx1);
+        await setDoc(doc(firestore, "transactions", "tx_2"), tx2);
+
+        // 11. Seed audit_logs
+        const initLog = {
+          id: "log_init",
+          action: "DATABASE_INITIALIZED",
+          operator: "SYSTEM_AUTO_SEED",
+          details: "تم تهيئة قاعدة البيانات وإنشاء كافة المجموعات والتحقق الأمني والمحافظ بنجاح تلقائياً.",
+          timestamp: Date.now()
+        };
+        await setDoc(doc(firestore, "audit_logs", "log_init"), initLog);
 
         console.log("Firestore successfully seeded with all initial data!");
       } else {
@@ -420,6 +637,100 @@ class ReactiveDB {
         deviceId: "android_id_owner"
       };
       await setDoc(doc(firestore, "users", "owner_wam2026"), ownerUser);
+      seededCount++;
+
+      const providerUser = {
+        id: "prov_777703195",
+        name: "أمين الغرباني",
+        phone: "777703195",
+        area: "منطقة الدائري",
+        role: "provider",
+        deviceId: "device_amin_777703195"
+      };
+      await setDoc(doc(firestore, "users", "prov_777703195"), providerUser);
+      seededCount++;
+
+      // 7. providers
+      for (const prov of SEED_PROVIDERS) {
+        await setDoc(doc(firestore, "providers", prov.id), prov);
+      }
+      seededCount++;
+
+      // 8. payment_settings
+      const defaultPaymentSettings = {
+        isPaymentEnabled: true,
+        showPaymentScreen: true,
+        linkPaymentToBookings: true,
+        walletAccounts: [
+          { id: "kuraimi", name: "كريمي", accountNumber: "123456", accountName: "شركة WAM للخدمات", isEnabled: true },
+          { id: "jeeb", name: "جيب", accountNumber: "777644", accountName: "مؤسسة WAM اليمن", isEnabled: true },
+          { id: "jawwal", name: "جوالي", accountNumber: "987654", accountName: "إدارة WAM", isEnabled: true },
+          { id: "mfloos", name: "أم فلوس", accountNumber: "777644", accountName: "كل خدمات اليمن", isEnabled: true }
+        ],
+        requireAdvancePayment: true,
+        advancePaymentPercentage: 15,
+        minAdvanceAmount: 500,
+        maxAdvanceAmount: 100000,
+        autoReleasePayment: true,
+        releaseHours: 24,
+        enableProviderWallets: true,
+        minWithdrawalAmount: 2000,
+        withdrawalFeePercentage: 2,
+        autoWithdrawal: false,
+        showWalletInProviderProfile: true,
+        showTransactionHistory: true,
+        showPaymentReceipts: true
+      };
+      await setDoc(doc(firestore, "settings", "PAYMENT_SETTINGS"), defaultPaymentSettings);
+      seededCount++;
+
+      // 9. provider_wallets
+      const defaultWallet = {
+        providerId: "prov_777703195",
+        providerName: "أمين الغرباني",
+        phoneNumber: "777703195",
+        currentBalance: 9000,
+        totalEarnings: 9000,
+        totalWithdrawals: 0,
+        status: "active"
+      };
+      await setDoc(doc(firestore, "provider_wallets", "prov_777703195"), defaultWallet);
+      seededCount++;
+
+      // 10. transactions
+      const tx1 = {
+        id: "tx_1",
+        providerId: "prov_777703195",
+        type: "deposit",
+        amount: 5000,
+        dateTime: Date.now() - 1000 * 60 * 60 * 24 * 2,
+        status: "completed",
+        description: "شحن رصيد البداية - محفظة ترحيبية WAM",
+        bookingId: ""
+      };
+      const tx2 = {
+        id: "tx_2",
+        providerId: "prov_777703195",
+        type: "payment",
+        amount: 4000,
+        dateTime: Date.now() - 1000 * 60 * 60 * 24,
+        status: "completed",
+        description: "أرباح حجز خدمة صيانة كهربائية مؤكدة",
+        bookingId: "booking_1"
+      };
+      await setDoc(doc(firestore, "transactions", "tx_1"), tx1);
+      await setDoc(doc(firestore, "transactions", "tx_2"), tx2);
+      seededCount += 2;
+
+      // 11. audit_logs
+      const initLog = {
+        id: "log_init",
+        action: "DATABASE_INITIALIZED",
+        operator: "SYSTEM_FORCE_SEED",
+        details: "تم فرض إعادة تهيئة سحابية سريعة وتصفير المجموعات المشبوهة بنجاح.",
+        timestamp: Date.now()
+      };
+      await setDoc(doc(firestore, "audit_logs", "log_init"), initLog);
       seededCount++;
 
       console.log("Force seeding complete!");
@@ -605,6 +916,89 @@ class ReactiveDB {
     this.saveCollection("users", users);
   }
 
+  // Getters & Setters for Payment Tab / Wallets Screen
+  public getPaymentSettings(): PaymentSettings {
+    const raw = localStorage.getItem("wam_payment_settings");
+    if (!raw) {
+      return {
+        isPaymentEnabled: true,
+        showPaymentScreen: true,
+        linkPaymentToBookings: true,
+        walletAccounts: [
+          { id: "kuraimi", name: "كريمي", accountNumber: "123456", accountName: "شركة WAM للخدمات", isEnabled: true },
+          { id: "jeeb", name: "جيب", accountNumber: "777644", accountName: "مؤسسة WAM اليمن", isEnabled: true },
+          { id: "jawwal", name: "جوالي", accountNumber: "987654", accountName: "إدارة WAM", isEnabled: true },
+          { id: "mfloos", name: "أم فلوس", accountNumber: "777644", accountName: "كل خدمات اليمن", isEnabled: true }
+        ],
+        requireAdvancePayment: true,
+        advancePaymentPercentage: 15,
+        minAdvanceAmount: 500,
+        maxAdvanceAmount: 100000,
+        autoReleasePayment: true,
+        releaseHours: 24,
+        enableProviderWallets: true,
+        minWithdrawalAmount: 2000,
+        withdrawalFeePercentage: 2,
+        autoWithdrawal: false,
+        showWalletInProviderProfile: true,
+        showTransactionHistory: true,
+        showPaymentReceipts: true
+      };
+    }
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return {} as any;
+    }
+  }
+
+  public async savePaymentSettings(settings: PaymentSettings) {
+    localStorage.setItem("wam_payment_settings", JSON.stringify(settings));
+    this.notify("payment_settings");
+    if (!firestore) return;
+    try {
+      await setDoc(doc(firestore, "settings", "PAYMENT_SETTINGS"), settings);
+    } catch (err) {
+      console.error("Error saving payment settings to Firestore:", err);
+    }
+  }
+
+  public getProviderWallets(): ProviderWallet[] {
+    return this.getCollection("provider_wallets");
+  }
+
+  public saveProviderWallets(wallets: ProviderWallet[]) {
+    this.saveCollection("provider_wallets", wallets);
+  }
+
+  public getTransactions(): Transaction[] {
+    return this.getCollection("transactions");
+  }
+
+  public saveTransactions(txs: Transaction[]) {
+    this.saveCollection("transactions", txs);
+  }
+
+  public getAuditLogs(): any[] {
+    return this.getCollection("audit_logs");
+  }
+
+  public saveAuditLogs(logs: any[]) {
+    this.saveCollection("audit_logs", logs);
+  }
+
+  public addAuditLog(action: string, operator: string, details: string) {
+    const logs = this.getAuditLogs();
+    const newLog = {
+      id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      action,
+      operator,
+      details,
+      timestamp: Date.now()
+    };
+    this.saveAuditLogs([newLog, ...logs]);
+  }
+
   // RESET ALL DATA TO SEED VALUES (for emergency recovery)
   public async clearAllData() {
     localStorage.removeItem("wam_settings");
@@ -619,6 +1013,10 @@ class ReactiveDB {
     localStorage.removeItem("wam_faqs");
     localStorage.removeItem("wam_users");
     localStorage.removeItem("wam_reviews");
+    localStorage.removeItem("wam_payment_settings");
+    localStorage.removeItem("wam_provider_wallets");
+    localStorage.removeItem("wam_transactions");
+    localStorage.removeItem("wam_audit_logs");
     this.initDatabase();
     
     // Notify all listeners
@@ -641,7 +1039,10 @@ class ReactiveDB {
           "banners",
           "faqs",
           "users",
-          "reviews"
+          "reviews",
+          "provider_wallets",
+          "transactions",
+          "audit_logs"
         ];
 
         for (const colName of collectionsToClear) {
