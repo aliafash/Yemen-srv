@@ -227,15 +227,22 @@ export default function App() {
   };
 
   const handleRoleChangeAttempt = (role: string) => {
-    if (role === "admin" || role === "provider" || role === "supervisor" || role === "owner") {
+    if (
+      role === "admin" || 
+      role === "director" || 
+      role === "supervisor" || 
+      role === "division_supervisor" || 
+      role === "owner" || 
+      role === "provider"
+    ) {
       setPendingRoleToSwitch(role);
       setRolePasswordInput("");
       setRolePasswordError("");
       setShowRolePasswordModal(true);
     } else {
       let u: User = { id: "guest_visitor", name: "زائر مجهول", phone: "777000000", area: "صنعاء", role: "visitor", deviceId: "web_device_visitor" };
-      if (role === "user") {
-        u = { id: "user_saeed", name: "أ. سعيد القحطاني", phone: "771222333", area: "صنعاء", role: "user", deviceId: "web_saeed" };
+      if (role === "user" || role === "client") {
+        u = { id: "user_saeed", name: "أ. سعيد القحطاني", phone: "771222333", area: "صنعاء", role: "client", deviceId: "web_saeed" };
       }
       
       const currentUsers = db.getUsers();
@@ -252,9 +259,10 @@ export default function App() {
   };
 
   const handleRecoverRolePassword = (method: "whatsapp" | "internal") => {
-    const roleName = pendingRoleToSwitch === "admin" ? "مدير عام" : 
-                     pendingRoleToSwitch === "supervisor" ? "مشرف" : "مقدم خدمة";
-                     
+    const roleName = pendingRoleToSwitch === "admin" || pendingRoleToSwitch === "director" ? "مدير عام / رئيسي" : 
+                     pendingRoleToSwitch === "supervisor" ? "مشرف عام" : 
+                     pendingRoleToSwitch === "division_supervisor" ? "مشرف قسم" : "مقدم خدمة";
+                      
     if (method === "whatsapp") {
       const msg = encodeURIComponent(`السلام عليكم، لقد فقدت كلمة المرور الخاصة بحسابي كـ (${roleName}) في تطبيق WAM. يرجى تزويدي ببيانات استرداد الدخول للأهمية.`);
       const phone = settings.supportWhatsapp || "777644";
@@ -289,7 +297,7 @@ export default function App() {
     setRolePasswordError("");
 
     try {
-      const type = pendingRoleToSwitch === "admin" ? "admin" : "backdoor";
+      const type = (pendingRoleToSwitch === "admin" || pendingRoleToSwitch === "director") ? "admin" : "backdoor";
       const res = await fetch("/api/verify-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -301,11 +309,11 @@ export default function App() {
 
       // Local fallback in case of offline/network issues or custom settings passwords
       if (!isSuccess) {
-        if (pendingRoleToSwitch === "admin") {
+        if (pendingRoleToSwitch === "admin" || pendingRoleToSwitch === "director") {
           isSuccess = rolePasswordInput === (settings.adminPassword || "maher736462");
         } else if (pendingRoleToSwitch === "owner") {
           isSuccess = rolePasswordInput === (settings.backdoorPassword || "maher--736462");
-        } else if (pendingRoleToSwitch === "supervisor") {
+        } else if (pendingRoleToSwitch === "supervisor" || pendingRoleToSwitch === "division_supervisor") {
           isSuccess = rolePasswordInput === (settings.adminPassword || "maher736462") || 
                       rolePasswordInput === (settings.backdoorPassword || "maher--736462");
         } else if (pendingRoleToSwitch === "provider") {
@@ -316,12 +324,14 @@ export default function App() {
 
       if (isSuccess) {
         let u: User;
-        if (pendingRoleToSwitch === "admin") {
-          u = { id: "admin_maher", name: "WAM2026 (المدير الرئيسي)", phone: "777644", area: "صنعاء", role: "admin", deviceId: "web_maher" };
+        if (pendingRoleToSwitch === "admin" || pendingRoleToSwitch === "director") {
+          u = { id: "admin_maher", name: "WAM2026 (المدير الرئيسي)", phone: "777644", area: "صنعاء", role: "director", deviceId: "web_maher" };
         } else if (pendingRoleToSwitch === "owner") {
           u = { id: "owner_wam2026", name: "WAM2026", phone: "777644", area: "صنعاء", role: "owner", deviceId: "android_id_owner" };
         } else if (pendingRoleToSwitch === "supervisor") {
-          u = { id: "supervisor_wam", name: "مشرف بوابة WAM", phone: "777644", area: "صنعاء", role: "supervisor", deviceId: "web_supervisor" };
+          u = { id: "supervisor_wam", name: "المشرف العام لـ WAM", phone: "777644", area: "صنعاء", role: "supervisor", deviceId: "web_supervisor" };
+        } else if (pendingRoleToSwitch === "division_supervisor") {
+          u = { id: "div_supervisor_wam", name: "مشرف القسم الخدمي", phone: "777644", area: "صنعاء", role: "division_supervisor", deviceId: "web_div_supervisor" };
         } else {
           u = { id: "prov_777123456", name: "م. ماجد صلاح الصنعاني", phone: "777123456", area: "حدة", role: "provider", deviceId: "web_majed" };
         }
@@ -345,11 +355,11 @@ export default function App() {
     } catch (err) {
       // Local fallback when offline
       let isSuccess = false;
-      if (pendingRoleToSwitch === "admin") {
+      if (pendingRoleToSwitch === "admin" || pendingRoleToSwitch === "director") {
         isSuccess = rolePasswordInput === (settings.adminPassword || "maher736462");
       } else if (pendingRoleToSwitch === "owner") {
         isSuccess = rolePasswordInput === (settings.backdoorPassword || "maher--736462");
-      } else if (pendingRoleToSwitch === "supervisor") {
+      } else if (pendingRoleToSwitch === "supervisor" || pendingRoleToSwitch === "division_supervisor") {
         isSuccess = rolePasswordInput === (settings.adminPassword || "maher736462") || 
                     rolePasswordInput === (settings.backdoorPassword || "maher--736462");
       } else if (pendingRoleToSwitch === "provider") {
@@ -359,12 +369,14 @@ export default function App() {
 
       if (isSuccess) {
         let u: User;
-        if (pendingRoleToSwitch === "admin") {
-          u = { id: "admin_maher", name: "WAM2026 (المدير الرئيسي)", phone: "777644", area: "صنعاء", role: "admin", deviceId: "web_maher" };
+        if (pendingRoleToSwitch === "admin" || pendingRoleToSwitch === "director") {
+          u = { id: "admin_maher", name: "WAM2026 (المدير الرئيسي)", phone: "777644", area: "صنعاء", role: "director", deviceId: "web_maher" };
         } else if (pendingRoleToSwitch === "owner") {
           u = { id: "owner_wam2026", name: "WAM2026", phone: "777644", area: "صنعاء", role: "owner", deviceId: "android_id_owner" };
         } else if (pendingRoleToSwitch === "supervisor") {
-          u = { id: "supervisor_wam", name: "مشرف بوابة WAM", phone: "777644", area: "صنعاء", role: "supervisor", deviceId: "web_supervisor" };
+          u = { id: "supervisor_wam", name: "المشرف العام لـ WAM", phone: "777644", area: "صنعاء", role: "supervisor", deviceId: "web_supervisor" };
+        } else if (pendingRoleToSwitch === "division_supervisor") {
+          u = { id: "div_supervisor_wam", name: "مشرف القسم الخدمي", phone: "777644", area: "صنعاء", role: "division_supervisor", deviceId: "web_div_supervisor" };
         } else {
           u = { id: "prov_777123456", name: "م. ماجد صلاح الصنعاني", phone: "777123456", area: "حدة", role: "provider", deviceId: "web_majed" };
         }
@@ -732,6 +744,7 @@ export default function App() {
                       setChats(db.getChats());
                       setUsers(db.getUsers());
                     }}
+                    currentUser={currentUser}
                   />
                 );
               }

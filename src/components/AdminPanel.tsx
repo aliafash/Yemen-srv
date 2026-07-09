@@ -47,6 +47,7 @@ interface AdminPanelProps {
   users: User[];
   onUpdateSettings: (newSettings: AppSettings) => void;
   onRefreshData: () => void;
+  currentUser?: User;
 }
 
 export default function AdminPanel({
@@ -58,7 +59,8 @@ export default function AdminPanel({
   notifications,
   users,
   onUpdateSettings,
-  onRefreshData
+  onRefreshData,
+  currentUser
 }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<number>(0);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -558,6 +560,32 @@ export default function AdminPanel({
     document.body.removeChild(link);
   };
 
+  const handleTabClick = (idx: number) => {
+    const role = currentUser?.role || "visitor";
+    
+    // Division Supervisor restrictions:
+    if (role === "division_supervisor") {
+      // Allowed tabs: 3 (Registration pending), 4 (Active Vendors), 7 (Bookings), 12 (Chats)
+      const allowed = [3, 4, 7, 12];
+      if (!allowed.includes(idx)) {
+        alert("🚫 عذراً! بصفتك مشرف قسم، يقتصر نطاق صلاحياتك على إدارة الفنيين، طلبات التسجيل، ونظام الحجوزات والمحادثات الفورية التابعة لقسمك فقط.");
+        return;
+      }
+    }
+    
+    // Supervisor restrictions:
+    if (role === "supervisor") {
+      // Restricted tabs: Settings (0), Colors (1), Icons (2), Admin permissions (14), Export/Import (22)
+      const restricted = [0, 1, 2, 14, 22];
+      if (restricted.includes(idx)) {
+        alert("🚫 عذراً! هذه الإعدادات حساسة للغاية ويتم إدارتها حصرياً بواسطة [المالك الرئيسي] أو [المدير الرئيسي] لدواعي الأمان ومنع العبث بالهوية البصرية.");
+        return;
+      }
+    }
+    
+    setActiveTab(idx);
+  };
+
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden grid grid-cols-1 md:grid-cols-12 text-right font-sans shadow-xl h-[600px]" dir="rtl" style={{ fontFamily: settings.selectedFontName }}>
       {/* Sidebar index */}
@@ -573,7 +601,7 @@ export default function AdminPanel({
             return (
               <button
                 key={idx}
-                onClick={() => setActiveTab(idx)}
+                onClick={() => handleTabClick(idx)}
                 className={`w-full px-4 py-3 text-right text-xs transition-all flex items-center justify-between cursor-pointer ${
                   isSelected 
                     ? "bg-amber-500/10 text-amber-400 font-extrabold border-r-4 border-amber-500" 
@@ -1134,9 +1162,18 @@ export default function AdminPanel({
                     <select
                       value={u.role}
                       onChange={(e) => {
-                        const updated = users.map(usr => usr.id === u.id ? { ...usr, role: e.target.value as any } : usr);
-                        db.saveUsers(updated);
-                        onRefreshData();
+                        const newRole = e.target.value as any;
+                        triggerCriticalAction(
+                          "تغيير صلاحيات وحساب مستخدم",
+                          `هل أنت متأكد من رغبتك في تعديل صلاحيات الحساب "${u.name}" من الصلاحية الحالية إلى الصلاحية الجديدة (${newRole})؟ هذا الإجراء أمني حساس للغاية.`,
+                          () => {
+                            const updated = users.map(usr => usr.id === u.id ? { ...usr, role: newRole } : usr);
+                            db.saveUsers(updated);
+                            onRefreshData();
+                            db.addAuditLog("USER_ROLE_CHANGED", "WAM_ADMIN", `تم تعديل صلاحية المستخدم ${u.name} إلى ${newRole}`);
+                            alert(`✅ تم تغيير صلاحيات المستخدم بنجاح إلى: ${newRole}`);
+                          }
+                        );
                       }}
                       className="bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-[9px] text-white"
                     >
@@ -1249,7 +1286,8 @@ export default function AdminPanel({
                   { value: "auto", name: "إرسال مباشر وتلقائي للفني المحدد (Auto Direct)", desc: "يوجه حجز الموعد فوراً للفني الذي اختاره العميل." },
                   { value: "manual", name: "الموافقة والمراجعة الإدارية اليدوية (Manual Broker)", desc: "يتلقى المشرفون الحجز أولاً، ثم يوجهونه يدوياً لأفضل فني متفرغ." },
                   { value: "random", name: "التوزيع العشوائي الدائري (Round Robin)", desc: "يوزع الحجوزات بالتساوي لتوزيع الفرص والأرباح بشكل عادل." },
-                  { value: "nearby", name: "التوجيه الذكي للأقرب مسافة جغرافياً (Nearest Neighbor)", desc: "يوجه الطلب للفني الأقرب جغرافياً للعميل لتسريع الخدمة." }
+                  { value: "nearby", name: "التوجيه الذكي للأقرب مسافة جغرافياً (Nearest Neighbor)", desc: "يوجه الطلب للفني الأقرب جغرافياً للعميل لتسريع الخدمة." },
+                  { value: "broadcast", name: "البث العام المفتوح (Broadcast Broadcast)", desc: "يبث الحجز لجميع الفنيين المتوفرين في المحافظة ويمنحه لمن يوافق عليه أولاً." }
                 ].map((mode) => (
                   <label key={mode.value} className="flex items-start gap-2.5 p-2.5 rounded-lg border border-slate-900 hover:border-slate-800 cursor-pointer flex-row-reverse text-right bg-slate-900/40">
                     <input 

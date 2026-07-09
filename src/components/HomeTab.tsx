@@ -203,7 +203,13 @@ export default function HomeTab({
   const vipProviders = filteredProviders.filter(p => p.isPinned);
   const standardProviders = filteredProviders.filter(p => !p.isPinned);
 
-  const CITIES_YEMEN = ["الكل", "صنعاء", "عدن", "تعز", "إب", "الحديدة", "المكلا", "ذمار", "سيئون"];
+  const CITIES_YEMEN = [
+    "الكل", 
+    "صنعاء", "عدن", "تعز", "إب", "الحديدة", "حضرموت", 
+    "المكلا", "سيئون", "ذمار", "البيضاء", "مأرب", "الجوف", 
+    "صعدة", "حجة", "المحويت", "عمران", "الضالع", "لحج", 
+    "أبين", "شبوة", "سقطرى"
+  ];
 
   return (
     <div className="space-y-6" style={{ fontFamily: settings.selectedFontName }}>

