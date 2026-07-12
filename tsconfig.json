@@ -23,5 +23,12 @@
     "types": ["vite/client"],
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "yemen-services",
+    "WAM",
+    "yemen-services-site"
+  ]
 }

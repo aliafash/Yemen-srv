@@ -1,6 +1,0 @@
-{
-  "name": "WAM - كل خدمات اليمن",
-  "description": "دليلك الشامل ومزود خدماتك الفورية ومحترفي اليمن - بوابة الخدمات المتكاملة",
-  "requestFramePermissions": ["microphone", "geolocation"],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
