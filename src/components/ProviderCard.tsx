@@ -204,13 +204,6 @@ export default function ProviderCard({
                   <span>{provider.rating.toFixed(1)}</span>
                   <span className="text-slate-500 font-normal text-[10px]">({provider.reviewCount})</span>
                 </div>
-                {provider.price > 0 ? (
-                  <span className="text-emerald-400 font-bold">
-                    {provider.price} <span className="text-[10px] text-slate-400 font-normal">ريال</span>
-                  </span>
-                ) : (
-                  <span className="text-slate-400 text-[10px]">اتفاق مسبق</span>
-                )}
               </div>
             </div>
 
