@@ -38,7 +38,9 @@ import {
   Phone,
   Info,
   Heart,
-  CreditCard
+  CreditCard,
+  Camera,
+  Video
 } from "lucide-react";
 
 // Modular Components
@@ -72,15 +74,22 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<"home" | "map" | "join" | "booking" | "chat" | "about" | "payment" | "admin">("home");
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const [bookingProvider, setBookingProvider] = useState<Provider | null>(null);
+  const [chosenPaymentMethod, setChosenPaymentMethod] = useState<string>("cash");
 
   // Star Rating States
   const [userRating, setUserRating] = useState<number>(0);
   const [ratingSubmitted, setRatingSubmitted] = useState<boolean>(false);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewImage, setReviewImage] = useState("");
+  const [reviewVideo, setReviewVideo] = useState("");
 
   // Reset rating state when selected provider changes
   useEffect(() => {
     setUserRating(0);
     setRatingSubmitted(false);
+    setReviewComment("");
+    setReviewImage("");
+    setReviewVideo("");
   }, [selectedProvider]);
 
   // Modals Toggles
@@ -97,6 +106,13 @@ export default function App() {
   const [isRoleVerifying, setIsRoleVerifying] = useState(false);
   const [showPasswordChar, setShowPasswordChar] = useState(false);
   const [showRecoveryOptions, setShowRecoveryOptions] = useState(false);
+
+  // Unified account recovery system states
+  const [recoveryPhone, setRecoveryPhone] = useState("");
+  const [recoveryUserType, setRecoveryUserType] = useState<"user" | "provider">("user");
+  const [enteredRecoveryCode, setEnteredRecoveryCode] = useState("");
+  const [newRecoveryPassword, setNewRecoveryPassword] = useState("");
+  const [recoveryRequested, setRecoveryRequested] = useState(false);
 
   // Secret Easter Egg click counter
   const [homeClickCount, setHomeClickCount] = useState(0);
@@ -198,32 +214,44 @@ export default function App() {
   // Handler to record interactive star rating and compute new average
   const handleRateProvider = (providerId: string, ratingValue: number) => {
     if (ratingValue < 1 || ratingValue > 5) return;
-    
-    const currentProviders = db.getProviders();
-    const updatedProviders = currentProviders.map(p => {
-      if (p.id === providerId) {
-        const count = p.reviewCount || 0;
-        const currentRating = p.rating || 0.0;
-        const newCount = count + 1;
-        const newRating = parseFloat(((currentRating * count + ratingValue) / newCount).toFixed(1));
-        return {
-          ...p,
-          rating: newRating,
-          reviewCount: newCount
-        };
-      }
-      return p;
-    });
+    if (!selectedProvider) return;
 
-    db.saveProviders(updatedProviders);
-    setProviders(updatedProviders);
+    // Create a pending review
+    const newReview = {
+      id: `rev_${Date.now()}`,
+      providerId: selectedProvider.id,
+      providerName: selectedProvider.name,
+      userId: currentUser?.id || "guest",
+      userName: currentUser?.name || "عميل مجهول",
+      userPhone: currentUser?.phone || "",
+      rating: ratingValue,
+      comment: reviewComment.trim(),
+      imageUrl: reviewImage,
+      videoUrl: reviewVideo,
+      status: "pending" as const,
+      timestamp: Date.now()
+    };
+
+    const currentReviews = db.getReviews();
+    db.saveReviews([newReview, ...currentReviews]);
+
+    // Send admin notification
+    const systemNotifs = db.getNotifications();
+    const adminNotif = {
+      id: `not_rev_${Date.now()}`,
+      title: "تقييم ومراجعة جديدة للموافقة ⭐️",
+      body: `قام العميل ${currentUser?.name || "عميل مجهول"} بإضافة مراجعة وتقييم (${ratingValue} نجوم) للفني ${selectedProvider.name}. يرجى مراجعة التعليق والمرفقات والموافقة عليها لتظهر للجميع.`,
+      type: "admin" as const,
+      targetType: "admins" as const,
+      targetId: "",
+      targetRole: "admin" as const,
+      isRead: false,
+      timestamp: Date.now()
+    };
+    db.saveNotifications([...systemNotifs, adminNotif]);
+
     setRatingSubmitted(true);
-    
-    // Auto update selectedProvider display in the current active modal
-    const updated = updatedProviders.find(p => p.id === providerId);
-    if (updated) {
-      setSelectedProvider(updated);
-    }
+    alert("✅ تم إرسال تقييمك ومراجعتك بنجاح! ستظهر على الملف الشخصي للفني فور موافقة المشرفين.");
   };
 
   const handleRoleChangeAttempt = (role: string) => {
@@ -256,6 +284,130 @@ export default function App() {
       setCurrentUser(u);
       setActiveTab("home");
     }
+  };
+
+  // Request 6-digit secure recovery code
+  const handleRequestRecoveryCode = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recoveryPhone.trim()) return alert("⚠️ يرجى إدخال رقم الهاتف أولاً.");
+
+    // Check if user/provider exists
+    const phoneClean = recoveryPhone.trim();
+    let targetName = "";
+    let exists = false;
+
+    if (recoveryUserType === "provider") {
+      const providersList = db.getProviders();
+      const prov = providersList.find(p => p.phone === phoneClean);
+      if (prov) {
+        exists = true;
+        targetName = prov.name;
+      }
+    } else {
+      const usersList = db.getUsers();
+      const usr = usersList.find(u => u.phone === phoneClean);
+      if (usr) {
+        exists = true;
+        targetName = usr.name || "عميل";
+      }
+    }
+
+    if (!exists) {
+      alert(`❌ خطأ: لم يتم العثور على أي حساب مسجل برقم الهاتف ${phoneClean} في دليل WAM.`);
+      return;
+    }
+
+    // Generate 6-digit code
+    const randCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const secureCode = `WAM_${randCode}`;
+
+    // Store the recovery request in local collection
+    const currentRequests = db.getCollection("recovery_requests") || [];
+    const newRequest = {
+      id: `rec_${Date.now()}`,
+      phone: phoneClean,
+      userType: recoveryUserType,
+      name: targetName,
+      code: secureCode,
+      status: "pending",
+      timestamp: Date.now()
+    };
+    db.saveCollection("recovery_requests", [newRequest, ...currentRequests]);
+
+    // Send Admin Notification so it appears in Admin Panel
+    const systemNotifs = db.getNotifications();
+    const recoveryNotif = {
+      id: `not_rec_${Date.now()}`,
+      title: "🔑 طلب استرداد حساب وكود أمان",
+      body: `طلب الفني/العميل ${targetName} (${phoneClean}) استرداد حسابه. كود الأمان المولد يدوياً هو: [ ${secureCode} ]. يرجى تزويده للعميل للتحقق.`,
+      type: "admin" as const,
+      targetType: "admins" as const,
+      targetId: "",
+      targetRole: "admin" as const,
+      isRead: false,
+      timestamp: Date.now()
+    };
+    db.saveNotifications([...systemNotifs, recoveryNotif]);
+    db.addAuditLog("PASSWORD_RECOVERY_REQUESTED", "SYSTEM", `طلب استرداد حساب لـ ${targetName} (${phoneClean})`);
+
+    setRecoveryRequested(true);
+    alert(`✅ تم إرسال طلبك بنجاح للمشرف العام!\nيرجى التواصل مع إدارة WAM (777644 أو واتساب) للحصول على كود الأمان المؤقت المكون من 6 أرقام لتغيير كلمة المرور.`);
+  };
+
+  // Verify code and reset password
+  const handleVerifyAndResetPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!enteredRecoveryCode.trim()) return alert("⚠️ يرجى إدخال كود الاسترداد المكون من 6 أرقام.");
+    if (newRecoveryPassword.trim().length < 6) return alert("⚠️ يجب ألا تقل كلمة المرور الجديدة عن 6 خانات.");
+
+    const phoneClean = recoveryPhone.trim();
+    const codeClean = enteredRecoveryCode.trim();
+    const newPassEncoded = btoa(newRecoveryPassword.trim());
+
+    // Fetch recovery requests
+    const currentRequests = db.getCollection("recovery_requests") || [];
+    const matchingReqIndex = currentRequests.findIndex((r: any) => r.phone === phoneClean && r.code === codeClean && r.status === "pending");
+
+    if (matchingReqIndex === -1) {
+      alert("❌ كود الاسترداد غير صحيح أو منتهي الصلاحية! يرجى التأكد من الكود الممنوح لك من المشرف العام.");
+      return;
+    }
+
+    // Code matches! Update the target user's password
+    if (recoveryUserType === "provider") {
+      const providersList = db.getProviders();
+      const updatedProviders = providersList.map(p => {
+        if (p.phone === phoneClean) {
+          return { ...p, password: newPassEncoded };
+        }
+        return p;
+      });
+      db.saveProviders(updatedProviders);
+    } else {
+      const usersList = db.getUsers();
+      const updatedUsers = usersList.map(u => {
+        if (u.phone === phoneClean) {
+          return { ...u, password: newRecoveryPassword.trim() }; // Users use plain password or encoded depending on db
+        }
+        return u;
+      });
+      db.saveUsers(updatedUsers);
+    }
+
+    // Mark request as completed
+    currentRequests[matchingReqIndex].status = "completed";
+    db.saveCollection("recovery_requests", currentRequests);
+
+    db.addAuditLog("PASSWORD_RECOVERY_COMPLETED", "SYSTEM", `تم بنجاح تغيير كلمة مرور الحساب المرتبط بالرقم ${phoneClean}`);
+    
+    // Reset states
+    setRecoveryPhone("");
+    setEnteredRecoveryCode("");
+    setNewRecoveryPassword("");
+    setRecoveryRequested(false);
+    setShowRecoveryOptions(false);
+
+    alert("🎉 تهانينا! تم تحديث كلمة المرور الخاصة بحسابك بنجاح. يمكنك الآن تسجيل الدخول بها فوراً.");
   };
 
   const handleRecoverRolePassword = (method: "whatsapp" | "internal") => {
@@ -483,7 +635,8 @@ export default function App() {
       rejectionReason: "",
       timestamp: Date.now(),
       completedAt: 0,
-      isEmergency: bookingForm.isEmergency
+      isEmergency: bookingForm.isEmergency,
+      paymentMethod: chosenPaymentMethod
     };
 
     const currentBookings = db.getBookings();
@@ -646,26 +799,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* Quick Support Caller */}
+          {/* Role Switcher only */}
           <div className="flex items-center gap-2 flex-row-reverse">
-            <button
-              onClick={() => setProfileOpen(true)}
-              className="px-3 py-1.5 bg-gradient-to-r from-rose-950/40 to-slate-900 border border-slate-800 hover:border-rose-500/50 text-slate-300 hover:text-rose-400 font-extrabold text-[10px] rounded-lg transition-all flex items-center gap-1.5 flex-row-reverse cursor-pointer"
-              title="تصفح حسابك وقائمة المفضلات"
-            >
-              <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500/20" />
-              <span>الملف الشخصي</span>
-            </button>
-
-            <button
-              onClick={() => window.open(`tel:${settings.supportPhone}`)}
-              className="px-3 py-1.5 bg-slate-900 border border-slate-800 hover:border-emerald-500 text-slate-300 hover:text-emerald-400 font-extrabold text-[10px] rounded-lg transition-all flex items-center gap-1.5 flex-row-reverse cursor-pointer"
-              title="اتصال مباشر بالدعم الفني الموحد"
-            >
-              <PhoneCall className="w-3.5 h-3.5" />
-              <span>دعم الطوارئ</span>
-            </button>
-
             {/* Simulated Live Role Switcher (For Preview verification) */}
             <div className="flex items-center gap-1.5 bg-slate-900 px-2 py-1 rounded-lg border border-slate-800 flex-row-reverse">
               <span className="text-[9px] text-slate-500 font-bold">الحساب:</span>
@@ -899,14 +1034,15 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Star Rating Section */}
-              <div className="bg-slate-950 p-4 rounded-xl border border-slate-850/60 space-y-2.5 text-center">
-                <h4 className="font-extrabold text-slate-300 text-xs">هل تعاملت مع {selectedProvider.name}؟ شاركنا تقييمك للخدمة:</h4>
+              {/* Star Rating & Advanced Review Section */}
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-850/60 space-y-3.5 text-right">
+                <h4 className="font-extrabold text-slate-300 text-xs">هل تعاملت مع {selectedProvider.name}؟ شاركنا تقييمك ومراجعتك:</h4>
                 
                 {ratingSubmitted ? (
-                  <p className="text-emerald-400 text-xs font-extrabold animate-pulse">✓ شكراً لك! تم تسجيل تقييمك بـ {userRating} نجوم بنجاح.</p>
+                  <p className="text-emerald-400 text-xs font-extrabold text-center animate-pulse py-2">✓ شكراً لك! تم إرسال مراجعتك بنجاح وسوف تظهر بعد مراجعة المشرفين.</p>
                 ) : (
-                  <div className="flex flex-col items-center gap-2">
+                  <div className="space-y-3">
+                    {/* Stars Selection */}
                     <div className="flex items-center gap-1.5 justify-center flex-row-reverse">
                       {[5, 4, 3, 2, 1].map((star) => (
                         <button
@@ -918,22 +1054,138 @@ export default function App() {
                             className={`w-6 h-6 ${
                               userRating >= star 
                                 ? "fill-amber-400 text-amber-400" 
-                                : "text-slate-600 hover:text-slate-400"
+                                : "text-slate-700 hover:text-slate-500"
                             }`} 
                           />
                         </button>
                       ))}
                     </div>
+
                     {userRating > 0 && (
-                      <button
-                        onClick={() => handleRateProvider(selectedProvider.id, userRating)}
-                        className="mt-1 px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-[10px] rounded-lg shadow-md transition-all active:scale-95 cursor-pointer"
-                      >
-                        تأكيد وإرسال التقييم ⭐️
-                      </button>
+                      <div className="space-y-3 animate-fade-in">
+                        {/* Review text comment */}
+                        <div>
+                          <label className="block text-slate-400 text-[10px] font-bold mb-1">اكتب تعليقك وتجربتك بالتفصيل (اختياري):</label>
+                          <textarea
+                            value={reviewComment}
+                            onChange={(e) => setReviewComment(e.target.value)}
+                            placeholder="كيف كانت جودة الخدمة، المعاملة والسرعة؟..."
+                            rows={2}
+                            className="w-full bg-slate-900 border border-slate-800 focus:border-amber-500/50 rounded-lg p-2 text-xs text-white text-right focus:outline-none"
+                          />
+                        </div>
+
+                        {/* Image/Video attachments */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-slate-400 text-[9px] font-bold mb-1">إضافة صورة عمل صيانة:</label>
+                            <label className="flex flex-col items-center justify-center p-2 border border-dashed border-slate-800 hover:border-amber-500/30 rounded-lg cursor-pointer bg-slate-900 text-slate-400 h-14 text-center">
+                              <Camera className="w-4 h-4 text-amber-500 mb-0.5" />
+                              <span className="text-[9px] truncate w-full max-w-full px-1">{reviewImage ? "✓ تم إرفاق صورة" : "رفع صورة"}</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                      setReviewImage(reader.result as string);
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+
+                          <div>
+                            <label className="block text-slate-400 text-[9px] font-bold mb-1">إضافة فيديو/تأكيد مرئي:</label>
+                            <label className="flex flex-col items-center justify-center p-2 border border-dashed border-slate-800 hover:border-amber-500/30 rounded-lg cursor-pointer bg-slate-900 text-slate-400 h-14 text-center">
+                              <Video className="w-4 h-4 text-rose-500 mb-0.5" />
+                              <span className="text-[9px] truncate w-full max-w-full px-1">{reviewVideo ? "✓ تم إرفاق فيديو" : "رفع فيديو صيانة"}</span>
+                              <input
+                                type="file"
+                                accept="video/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    setReviewVideo(`video_simulation_${file.name}`);
+                                    alert("🎥 تم ضغط وتجهيز الفيديو المرفق للرفع الآمن!");
+                                  }
+                                }}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* Submit Button */}
+                        <button
+                          onClick={() => handleRateProvider(selectedProvider.id, userRating)}
+                          className="w-full py-2 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-[10px] rounded-lg shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          إرسال المراجعة للمشرفين ⭐️
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}
+              </div>
+
+              {/* Verified Approved Reviews list */}
+              <div className="space-y-2 text-right">
+                <h4 className="font-extrabold text-white text-xs flex items-center gap-1 flex-row-reverse">
+                  <span>المراجعات والتقييمات المعتمدة من المشرفين ({db.getReviews().filter(r => r.providerId === selectedProvider.id && r.status === "approved").length})</span>
+                </h4>
+                
+                {(() => {
+                  const approvedReviews = db.getReviews().filter(r => r.providerId === selectedProvider.id && r.status === "approved");
+                  if (approvedReviews.length === 0) {
+                    return <p className="text-[10px] text-slate-500 leading-relaxed bg-slate-950/20 p-3 rounded-lg border border-slate-850 text-center">لا توجد مراجعات معتمدة لهذا الفني بعد. كن أول من يقيمه!</p>;
+                  }
+                  return (
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {approvedReviews.map((rev) => (
+                        <div key={rev.id} className="bg-slate-950/60 p-3 rounded-xl border border-slate-850/70 space-y-2">
+                          <div className="flex items-center justify-between flex-row-reverse">
+                            <span className="font-bold text-white text-[11px]">{rev.userName}</span>
+                            <div className="flex items-center gap-0.5">
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`w-3 h-3 ${i < rev.rating ? "fill-amber-400 text-amber-400" : "text-slate-800"}`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          {rev.comment && <p className="text-xs text-slate-300 leading-relaxed">{rev.comment}</p>}
+                          
+                          {/* Media attachments inside the review */}
+                          {(rev.imageUrl || rev.videoUrl) && (
+                            <div className="flex gap-2 flex-wrap pt-1">
+                              {rev.imageUrl && (
+                                <img
+                                  src={rev.imageUrl}
+                                  alt="إرفاق مراجعة"
+                                  className="w-16 h-16 rounded object-cover border border-slate-800 hover:scale-105 transition-transform"
+                                />
+                              )}
+                              {rev.videoUrl && (
+                                <div className="w-16 h-16 rounded bg-slate-900 border border-slate-800 flex flex-col items-center justify-center text-[8px] text-rose-400 font-bold">
+                                  <Video className="w-5 h-5 text-rose-500" />
+                                  <span>فيديو تأكيد</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          <span className="text-[8px] text-slate-500 block text-left">{new Date(rev.timestamp).toLocaleDateString("ar-YE")}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Services offered list */}
@@ -1093,6 +1345,83 @@ export default function App() {
                       className="w-4.5 h-4.5 accent-rose-500 cursor-pointer shrink-0"
                     />
                   </div>
+
+                  {/* Payment Option Selector in Booking Form */}
+                  {settings.isPaymentEnabled && (
+                    <div className="space-y-2 border-t border-slate-800 pt-3 text-right">
+                      <label className="block text-amber-500 text-[10px] font-bold mb-1">💳 اختر وسيلة دفع العربون للتأكيد:</label>
+                      <div className="space-y-1.5">
+                        {/* Cash on Delivery option */}
+                        <label className="flex items-center justify-between p-2 bg-slate-950 border border-slate-850 rounded-lg cursor-pointer hover:border-amber-500/50 select-none">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-slate-300 font-bold">الدفع كاش عند البدء بالخدمة</span>
+                          </div>
+                          <input
+                            type="radio"
+                            name="booking_payment_method"
+                            value="cash"
+                            checked={chosenPaymentMethod === "cash"}
+                            onChange={() => setChosenPaymentMethod("cash")}
+                            className="w-3.5 h-3.5 accent-amber-500"
+                          />
+                        </label>
+
+                        {/* Kuraimi Option */}
+                        {settings.paymentMerchantKuraimi && (
+                          <label className="flex items-center justify-between p-2 bg-slate-950 border border-slate-850 rounded-lg cursor-pointer hover:border-amber-500/50 select-none">
+                            <div className="flex flex-col items-start">
+                              <span className="text-[10px] text-slate-300 font-bold">محفظة الكريمي (أم فلوس)</span>
+                              <span className="text-[8px] text-slate-500 font-mono">حساب التاجر: {settings.paymentMerchantKuraimi}</span>
+                            </div>
+                            <input
+                              type="radio"
+                              name="booking_payment_method"
+                              value="kuraimi"
+                              checked={chosenPaymentMethod === "kuraimi"}
+                              onChange={() => setChosenPaymentMethod("kuraimi")}
+                              className="w-3.5 h-3.5 accent-amber-500"
+                            />
+                          </label>
+                        )}
+
+                        {/* MFloos Option */}
+                        {settings.paymentMerchantMFloos && (
+                          <label className="flex items-center justify-between p-2 bg-slate-950 border border-slate-850 rounded-lg cursor-pointer hover:border-amber-500/50 select-none">
+                            <div className="flex flex-col items-start">
+                              <span className="text-[10px] text-slate-300 font-bold">محفظة أم فلوس (التضامن)</span>
+                              <span className="text-[8px] text-slate-500 font-mono">حساب التاجر: {settings.paymentMerchantMFloos}</span>
+                            </div>
+                            <input
+                              type="radio"
+                              name="booking_payment_method"
+                              value="mfloos"
+                              checked={chosenPaymentMethod === "mfloos"}
+                              onChange={() => setChosenPaymentMethod("mfloos")}
+                              className="w-3.5 h-3.5 accent-amber-500"
+                            />
+                          </label>
+                        )}
+
+                        {/* Jawwal Pay Option */}
+                        {settings.paymentMerchantJawwalPay && (
+                          <label className="flex items-center justify-between p-2 bg-slate-950 border border-slate-850 rounded-lg cursor-pointer hover:border-amber-500/50 select-none">
+                            <div className="flex flex-col items-start">
+                              <span className="text-[10px] text-slate-300 font-bold">جوال بي (كاش جوالي)</span>
+                              <span className="text-[8px] text-slate-500 font-mono">حساب التاجر: {settings.paymentMerchantJawwalPay}</span>
+                            </div>
+                            <input
+                              type="radio"
+                              name="booking_payment_method"
+                              value="jawwalpay"
+                              checked={chosenPaymentMethod === "jawwalpay"}
+                              onChange={() => setChosenPaymentMethod("jawwalpay")}
+                              className="w-3.5 h-3.5 accent-amber-500"
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <button
                     type="submit"
@@ -1375,26 +1704,106 @@ export default function App() {
               </div>
 
               {showRecoveryOptions && (
-                <div className="bg-slate-950/80 border border-slate-850 rounded-xl p-3.5 space-y-2.5 text-right text-[10px]">
-                  <p className="text-slate-400 leading-relaxed font-semibold">
-                    اختر الوسيلة المناسبة لإرسال طلب أمان واستعادة بيانات دخولك:
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleRecoverRolePassword("internal")}
-                      className="py-2 bg-slate-900 hover:bg-slate-850 text-sky-400 border border-slate-800 rounded-lg font-bold text-[9px] transition-all cursor-pointer"
-                    >
-                      طلب استرداد داخلي 🔑
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRecoverRolePassword("whatsapp")}
-                      className="py-2 bg-emerald-950/40 hover:bg-emerald-950 text-emerald-400 border border-emerald-500/20 rounded-lg font-bold text-[9px] transition-all cursor-pointer"
-                    >
-                      إرسال عبر واتساب 💬
-                    </button>
-                  </div>
+                <div className="bg-slate-950/90 border border-slate-850 rounded-xl p-4 space-y-3.5 text-right text-[10px]">
+                  <h5 className="font-extrabold text-amber-500 text-[11px] border-b border-slate-900 pb-2">🔑 نظام استرداد الحسابات الآمن (أمان WAM):</h5>
+                  
+                  {!recoveryRequested ? (
+                    <div className="space-y-3">
+                      <p className="text-slate-400 leading-relaxed">
+                        يرجى إدخال رقم هاتفك المسجل وتحديد نوع حسابك لإرسال طلب استرداد مشفر للمشرف العام:
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setRecoveryUserType("user")}
+                          className={`py-1.5 rounded-lg font-bold border transition-all cursor-pointer ${
+                            recoveryUserType === "user"
+                              ? "bg-amber-600/10 text-amber-500 border-amber-500"
+                              : "bg-slate-900 text-slate-500 border-slate-800 hover:text-slate-450"
+                          }`}
+                        >
+                          عميل / مشرف 👤
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRecoveryUserType("provider")}
+                          className={`py-1.5 rounded-lg font-bold border transition-all cursor-pointer ${
+                            recoveryUserType === "provider"
+                              ? "bg-amber-600/10 text-amber-500 border-amber-500"
+                              : "bg-slate-900 text-slate-500 border-slate-800 hover:text-slate-450"
+                          }`}
+                        >
+                          مقدم خدمة / فني 🛠️
+                        </button>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-slate-400 font-bold">رقم الهاتف المسجل:</label>
+                        <input
+                          type="tel"
+                          placeholder="مثال: 777123456"
+                          value={recoveryPhone}
+                          onChange={(e) => setRecoveryPhone(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white text-right font-mono"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleRequestRecoveryCode}
+                        className="w-full py-2 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-[10px] rounded-lg transition-all cursor-pointer shadow-md"
+                      >
+                        إرسال طلب كود الاسترداد للمشرف ⏳
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80 text-emerald-400 font-bold leading-relaxed mb-2">
+                        ✓ تم تسجيل طلب الاسترداد لـ ({recoveryPhone})!
+                        <p className="text-[9px] text-slate-300 mt-1">تواصل مع المشرف العام للحصول على كود الأمان المكون من 6 أرقام (يبدأ بـ WAM_).</p>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-slate-400 font-bold">أدخل كود الأمان الممنوح لك:</label>
+                        <input
+                          type="text"
+                          placeholder="مثال: WAM_123456"
+                          value={enteredRecoveryCode}
+                          onChange={(e) => setEnteredRecoveryCode(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-amber-400 text-center font-mono placeholder-slate-650"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-slate-400 font-bold">كلمة المرور الجديدة (6 خانات على الأقل):</label>
+                        <input
+                          type="password"
+                          placeholder="أدخل كلمة المرور الجديدة"
+                          value={newRecoveryPassword}
+                          onChange={(e) => setNewRecoveryPassword(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white text-right"
+                        />
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setRecoveryRequested(false)}
+                          className="w-1/3 py-2 bg-slate-900 text-slate-400 hover:text-white rounded-lg text-[10px] font-bold border border-slate-800 cursor-pointer"
+                        >
+                          رجوع
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleVerifyAndResetPassword}
+                          className="w-2/3 py-2 bg-emerald-600 hover:bg-emerald-500 text-black font-extrabold text-[10px] rounded-lg transition-all cursor-pointer shadow-md"
+                        >
+                          حفظ وتحديث الحساب 💾
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

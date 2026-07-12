@@ -85,6 +85,90 @@ export default function ProviderStats({
         </div>
       </div>
 
+      {/* 👤 Professional Profile Card (الملف الشخصي للفني) */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+        <div className="flex items-center justify-between flex-row-reverse border-b border-slate-850 pb-3">
+          <h3 className="font-extrabold text-white text-sm flex items-center gap-2 flex-row-reverse">
+            <span className="p-1.5 bg-amber-500/10 rounded-lg text-amber-500">👤</span>
+            <span>ملفك المهني ومعلوماتك الشخصية</span>
+          </h3>
+          <span className="text-[10px] text-slate-500 font-bold">الرقم التعريفي: {currentProvider?.id || "غير متوفر"}</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-300">
+          <div className="space-y-2">
+            <div className="flex justify-between items-center bg-slate-950/40 p-2.5 rounded-xl border border-slate-850">
+              <span className="text-slate-400">الاسم الكامل:</span>
+              <span className="font-bold text-white">{currentProvider?.name || currentUser.name}</span>
+            </div>
+            <div className="flex justify-between items-center bg-slate-950/40 p-2.5 rounded-xl border border-slate-850">
+              <span className="text-slate-400">رقم الهاتف المعتمد:</span>
+              <span className="font-bold text-emerald-400 font-mono select-all">{currentProvider?.phone || currentUser.phone}</span>
+            </div>
+            <div className="flex justify-between items-center bg-slate-950/40 p-2.5 rounded-xl border border-slate-850">
+              <span className="text-slate-400">القسم الرئيسي:</span>
+              <span className="font-bold text-amber-500">{currentProvider?.category || "صيانة عامة"}</span>
+            </div>
+            <div className="flex justify-between items-center bg-slate-950/40 p-2.5 rounded-xl border border-slate-850">
+              <span className="text-slate-400">التخصص الدقيق:</span>
+              <span className="font-semibold text-white">{currentProvider?.subCategory || "فني معتمد"}</span>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex justify-between items-center bg-slate-950/40 p-2.5 rounded-xl border border-slate-850">
+              <span className="text-slate-400">المحافظة / المدينة:</span>
+              <span className="font-bold text-white">{currentProvider?.city || "صنعاء"}</span>
+            </div>
+            <div className="flex justify-between items-center bg-slate-950/40 p-2.5 rounded-xl border border-slate-850">
+              <span className="text-slate-400">المنطقة والحي السكني:</span>
+              <span className="font-semibold text-white">{currentProvider?.area || "غير محدد"}</span>
+            </div>
+            <div className="flex justify-between items-center bg-slate-950/40 p-2.5 rounded-xl border border-slate-850">
+              <span className="text-slate-400">سعر المعاينة الأولي:</span>
+              <span className="font-bold text-emerald-400">{currentProvider?.price || 3000} ريال يمني</span>
+            </div>
+            <div className="flex justify-between items-center bg-slate-950/40 p-2.5 rounded-xl border border-slate-850">
+              <span className="text-slate-400">ساعات العمل المفضلة:</span>
+              <span className="font-semibold text-white">{currentProvider?.workingHours || "8:00 ص - 10:00 م"}</span>
+            </div>
+          </div>
+        </div>
+
+        {currentProvider?.description && (
+          <div className="bg-slate-950/30 p-3 rounded-xl border border-slate-850 text-xs">
+            <span className="block text-slate-400 font-bold mb-1.5">نبذة تعريفية بخدماتك للعملاء:</span>
+            <p className="text-slate-300 leading-relaxed font-medium">{currentProvider.description}</p>
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-2.5 pt-2 text-xs">
+          <div className={`px-3 py-1.5 rounded-lg border font-bold flex items-center gap-1.5 ${
+            currentProvider?.isVerified 
+              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
+              : "bg-amber-500/10 border-amber-500/20 text-amber-400"
+          }`}>
+            <span>{currentProvider?.isVerified ? "✓ حساب موثق معتمد لدى WAM" : "⏳ قيد مراجعة وتدقيق المستندات"}</span>
+          </div>
+
+          <div className={`px-3 py-1.5 rounded-lg border font-bold flex items-center gap-1.5 ${
+            currentProvider?.isSubscribed 
+              ? "bg-amber-500/10 border-amber-500/20 text-amber-500" 
+              : "bg-slate-950/40 border-slate-850 text-slate-400"
+          }`}>
+            <span>{currentProvider?.isSubscribed ? "🏆 عضوية ذهبية مميزة (VIP)" : "عضوية عادية"}</span>
+          </div>
+
+          <div className={`px-3 py-1.5 rounded-lg border font-bold flex items-center gap-1.5 ${
+            currentProvider?.isAvailable 
+              ? "bg-emerald-600/10 border-emerald-500/30 text-emerald-400" 
+              : "bg-rose-500/10 border-rose-500/20 text-rose-400"
+          }`}>
+            <span>{currentProvider?.isAvailable ? "● متاح حالياً لاستقبال الطلبات" : "○ مشغول حالياً"}</span>
+          </div>
+        </div>
+      </div>
+
       {/* Bento Grid Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         

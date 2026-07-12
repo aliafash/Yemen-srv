@@ -68,6 +68,7 @@ export default function JoinTab({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   // Speech Recognition states for fields
   const [listeningField, setListeningField] = useState<string | null>(null);
@@ -174,6 +175,7 @@ export default function JoinTab({
     if (!description.trim()) return setError("⚠️ يرجى كتابة نبذة ووصف خبراتك المهنية.");
     if (!imageUrl) return setError("⚠️ يرجى رفع وتأكيد صورتك (الشخصية أو المهنية).");
     if (!nationalIdUrl) return setError("⚠️ يرجى رفع وتأكيد صورة الهوية الوطنية أو جواز السفر للتحقق الأمني.");
+    if (!termsAccepted) return setError("⚠️ يجب عليك تفعيل والموافقة على شروط الاستخدام والإقرار المهني للانضمام.");
 
     setIsSubmitting(true);
 
@@ -631,6 +633,20 @@ export default function JoinTab({
         <div className="bg-slate-950 p-3 rounded-xl border border-amber-500/10 text-[10px] text-slate-400 leading-relaxed text-right">
           ⚠️ <b>إقرار مهني:</b> بتسجيلك في دليل WAM كل خدمات اليمن، تقر وتتعهد بصحة بيانات هويتك وخبراتك وخلو سجلك الجنائي من أي قضايا أو مخالفات، كما تلتزم بحسن الخلق والصدق في تقديم الخدمات والأسعار المتفق عليها للزبائن.
         </div>
+
+        {/* Terms Acceptance checkbox */}
+        <label className="flex items-start gap-2.5 p-3.5 bg-slate-950/60 border border-slate-850 rounded-xl cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={termsAccepted}
+            onChange={(e) => setTermsAccepted(e.target.checked)}
+            className="w-4 h-4 accent-amber-500 rounded mt-0.5 cursor-pointer shrink-0"
+          />
+          <div className="text-right">
+            <span className="text-[11px] text-white font-extrabold block">أوافق على جميع الشروط وسياسات العمل والإقرار المهني 📑</span>
+            <span className="text-[9px] text-slate-400 block mt-0.5 font-sans">أقر بالتزامي بمعايير جودة الصيانة، والأمانة، والأسعار العادلة في الجمهورية اليمنية.</span>
+          </div>
+        </label>
 
         {/* Submit */}
         <button

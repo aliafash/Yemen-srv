@@ -1,5 +1,5 @@
 import { AppSettings } from "../types";
-import { Info, Download, Phone, MessageSquare } from "lucide-react";
+import { Info, Download, Phone, MessageSquare, Send, Facebook, Globe } from "lucide-react";
 
 interface AboutTabProps {
   settings: AppSettings;
@@ -22,6 +22,12 @@ export default function AboutTab({ settings }: AboutTabProps) {
   const handleWhatsAppSupport = () => {
     const text = `مرحباً دعم WAM، أحتاج لمساعدة عاجلة في تطبيق كل خدمات اليمن.`;
     window.open(`https://wa.me/967${settings.supportWhatsapp || "777644"}?text=${encodeURIComponent(text)}`, "_blank");
+  };
+
+  const handleOpenLink = (url?: string) => {
+    if (url) {
+      window.open(url, "_blank");
+    }
   };
 
   return (
@@ -72,6 +78,54 @@ export default function AboutTab({ settings }: AboutTabProps) {
             <span className="text-slate-400">مستوى التشفير:</span>
             <span className="font-semibold text-amber-400">{settings.aboutEncryptionLevel || "تشفير آمن سحابي"}</span>
           </div>
+          {settings.supportEmail && (
+            <div className="flex justify-between items-center text-[11px] sm:text-xs pt-1 border-t border-slate-800/40">
+              <span className="text-slate-400 font-bold">البريد الإلكتروني للدعم:</span>
+              <span className="font-semibold text-emerald-400 font-mono select-all">{settings.supportEmail}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Social Media & Website Fields */}
+        <div className="pt-3 border-t border-slate-800/60 space-y-2">
+          {settings.aboutTelegram && (
+            <button
+              onClick={() => handleOpenLink(settings.aboutTelegram)}
+              className="w-full py-2 bg-sky-950/20 hover:bg-sky-950/40 border border-sky-800/30 text-sky-300 rounded-lg flex items-center justify-between px-3 text-xs transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2 flex-row-reverse">
+                <Send className="w-3.5 h-3.5 text-sky-400" />
+                <span className="font-bold">قناة التليجرام الرسمية</span>
+              </div>
+              <span className="text-[10px] text-sky-500 font-mono">انضمام ➔</span>
+            </button>
+          )}
+
+          {settings.aboutFacebook && (
+            <button
+              onClick={() => handleOpenLink(settings.aboutFacebook)}
+              className="w-full py-2 bg-blue-950/20 hover:bg-blue-950/40 border border-blue-800/30 text-blue-300 rounded-lg flex items-center justify-between px-3 text-xs transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2 flex-row-reverse">
+                <Facebook className="w-3.5 h-3.5 text-blue-400" />
+                <span className="font-bold">صفحة الفيسبوك الرسمية</span>
+              </div>
+              <span className="text-[10px] text-blue-500 font-mono">متابعة ➔</span>
+            </button>
+          )}
+
+          {settings.aboutWebsite && (
+            <button
+              onClick={() => handleOpenLink(settings.aboutWebsite)}
+              className="w-full py-2 bg-emerald-950/20 hover:bg-emerald-950/40 border border-emerald-800/30 text-emerald-300 rounded-lg flex items-center justify-between px-3 text-xs transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2 flex-row-reverse">
+                <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="font-bold">الموقع الإلكتروني الرسمي</span>
+              </div>
+              <span className="text-[10px] text-emerald-500 font-mono">زيارة ➔</span>
+            </button>
+          )}
         </div>
       </div>
 

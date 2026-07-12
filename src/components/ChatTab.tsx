@@ -51,7 +51,7 @@ export default function ChatTab({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, activeChatId]);
 
-  if (!currentUser || currentUser.role === "visitor") {
+  if ((!currentUser || currentUser.role === "visitor") && settings.isQuickRegistrationEnabled !== false) {
     return (
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center text-slate-300 space-y-4 max-w-lg mx-auto font-sans" dir="rtl" style={{ fontFamily: settings.selectedFontName }}>
         <ShieldAlert className="w-14 h-14 text-amber-500 mx-auto animate-pulse" />

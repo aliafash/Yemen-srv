@@ -45,7 +45,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   welcomeMessage: "مرحباً بك في دليل خدمات اليمن - دليلك الشامل ومزود خدماتك الفورية ومحترفي اليمن",
   supportPhone: "777644",
   supportWhatsapp: "777644",
-  supportEmail: "info@yemen-services.com",
+  supportEmail: "maa736462@gmail.com",
   supportShareUrl: "https://yemen-services.com/download",
   isNotificationsEnabled: true,
   notificationTypes: {
@@ -120,7 +120,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   isPaymentEnabled: false,
   paymentMerchantKuraimi: "123456",
   paymentMerchantMFloos: "777644",
-  paymentMerchantJawwalPay: "987654"
+  paymentMerchantJawwalPay: "987654",
+  aboutTelegram: "https://t.me/wam_services",
+  aboutFacebook: "https://facebook.com/wam_services",
+  aboutWebsite: "https://yemen-services.com",
+  isQuickRegistrationEnabled: true
 };
 
 const SEED_CATEGORIES = [
@@ -771,7 +775,7 @@ class ReactiveDB {
     }
   }
 
-  private getCollection(collection: string): any {
+  public getCollection(collection: string): any {
     const raw = localStorage.getItem(`wam_${collection}`);
     try {
       return raw ? JSON.parse(raw) : [];
@@ -781,7 +785,7 @@ class ReactiveDB {
   }
 
   // Generic collection save and Firestore update with cleanup for deleted items
-  private async saveCollection(colName: string, items: any[]) {
+  public async saveCollection(colName: string, items: any[]) {
     // 1. Update local storage first for instant responsive UI
     localStorage.setItem(`wam_${colName}`, JSON.stringify(items));
     this.notify(colName);
@@ -916,6 +920,14 @@ class ReactiveDB {
     this.saveCollection("users", users);
   }
 
+  public getReviews(): any[] {
+    return this.getCollection("reviews");
+  }
+
+  public saveReviews(reviews: any[]) {
+    this.saveCollection("reviews", reviews);
+  }
+
   // Getters & Setters for Payment Tab / Wallets Screen
   public getPaymentSettings(): PaymentSettings {
     const raw = localStorage.getItem("wam_payment_settings");
@@ -997,6 +1009,144 @@ class ReactiveDB {
       timestamp: Date.now()
     };
     this.saveAuditLogs([newLog, ...logs]);
+  }
+
+  // Reset selected collections
+  public async resetSelectedCollections(selected: {
+    categories?: boolean;
+    providers?: boolean;
+    pending_providers?: boolean;
+    bookings?: boolean;
+    chats_messages?: boolean;
+    notifications?: boolean;
+    faqs_banners?: boolean;
+    users?: boolean;
+    wallets_transactions?: boolean;
+  }) {
+    if (selected.categories) {
+      localStorage.setItem("wam_categories", JSON.stringify(SEED_CATEGORIES));
+      this.notify("categories");
+      if (firestore) {
+        try {
+          const snapshot = await getDocs(fsCollection(firestore, "categories"));
+          for (const d of snapshot.docs) { await deleteDoc(d.ref); }
+          for (const cat of SEED_CATEGORIES) { await setDoc(doc(firestore, "categories", cat.id), cat); }
+        } catch (e) { console.error("Error resetting categories:", e); }
+      }
+    }
+    if (selected.providers) {
+      localStorage.setItem("wam_providers", JSON.stringify(SEED_PROVIDERS));
+      this.notify("providers");
+      if (firestore) {
+        try {
+          const snapshot = await getDocs(fsCollection(firestore, "providers"));
+          for (const d of snapshot.docs) { await deleteDoc(d.ref); }
+          for (const prov of SEED_PROVIDERS) { await setDoc(doc(firestore, "providers", prov.id), prov); }
+        } catch (e) { console.error("Error resetting providers:", e); }
+      }
+    }
+    if (selected.pending_providers) {
+      localStorage.setItem("wam_pending_providers", JSON.stringify([]));
+      this.notify("pending_providers");
+      if (firestore) {
+        try {
+          const snapshot = await getDocs(fsCollection(firestore, "pending_providers"));
+          for (const d of snapshot.docs) { await deleteDoc(d.ref); }
+        } catch (e) { console.error("Error resetting pending_providers:", e); }
+      }
+    }
+    if (selected.bookings) {
+      localStorage.setItem("wam_bookings", JSON.stringify([]));
+      this.notify("bookings");
+      if (firestore) {
+        try {
+          const snapshot = await getDocs(fsCollection(firestore, "bookings"));
+          for (const d of snapshot.docs) { await deleteDoc(d.ref); }
+        } catch (e) { console.error("Error resetting bookings:", e); }
+      }
+    }
+    if (selected.chats_messages) {
+      localStorage.setItem("wam_chats", JSON.stringify([]));
+      localStorage.setItem("wam_messages", JSON.stringify([]));
+      this.notify("chats");
+      this.notify("messages");
+      if (firestore) {
+        try {
+          const snapChats = await getDocs(fsCollection(firestore, "chats"));
+          for (const d of snapChats.docs) { await deleteDoc(d.ref); }
+          const snapMsgs = await getDocs(fsCollection(firestore, "messages"));
+          for (const d of snapMsgs.docs) { await deleteDoc(d.ref); }
+        } catch (e) { console.error("Error resetting chats_messages:", e); }
+      }
+    }
+    if (selected.notifications) {
+      localStorage.setItem("wam_notifications", JSON.stringify(SEED_NOTIFICATIONS));
+      this.notify("notifications");
+      if (firestore) {
+        try {
+          const snapshot = await getDocs(fsCollection(firestore, "notifications"));
+          for (const d of snapshot.docs) { await deleteDoc(d.ref); }
+          for (const not of SEED_NOTIFICATIONS) { await setDoc(doc(firestore, "notifications", not.id), not); }
+        } catch (e) { console.error("Error resetting notifications:", e); }
+      }
+    }
+    if (selected.faqs_banners) {
+      localStorage.setItem("wam_faqs", JSON.stringify(SEED_FAQS));
+      localStorage.setItem("wam_banners", JSON.stringify(SEED_BANNERS));
+      this.notify("faqs");
+      this.notify("banners");
+      if (firestore) {
+        try {
+          const snapFaqs = await getDocs(fsCollection(firestore, "faqs"));
+          for (const d of snapFaqs.docs) { await deleteDoc(d.ref); }
+          for (const faq of SEED_FAQS) {
+            const stableId = `faq_${faq.q.substring(0, 15).replace(/[^a-zA-Z0-9]/g, "_")}`;
+            await setDoc(doc(firestore, "faqs", stableId), faq);
+          }
+          const snapBanners = await getDocs(fsCollection(firestore, "banners"));
+          for (const d of snapBanners.docs) { await deleteDoc(d.ref); }
+          for (const banner of SEED_BANNERS) { await setDoc(doc(firestore, "banners", banner.id), banner); }
+        } catch (e) { console.error("Error resetting faqs_banners:", e); }
+      }
+    }
+    if (selected.users) {
+      const defaultUsers = [
+        { id: "owner_wam2026", name: "WAM2026", phone: "777644", area: "صنعاء", role: "owner", deviceId: "android_id_owner" },
+        { id: "prov_777703195", name: "أمين الغرباني", phone: "777703195", area: "منطقة الدائري", role: "provider", deviceId: "device_amin_777703195" }
+      ];
+      localStorage.setItem("wam_users", JSON.stringify(defaultUsers));
+      this.notify("users");
+      if (firestore) {
+        try {
+          const snapshot = await getDocs(fsCollection(firestore, "users"));
+          for (const d of snapshot.docs) { await deleteDoc(d.ref); }
+          for (const u of defaultUsers) { await setDoc(doc(firestore, "users", u.id), u); }
+        } catch (e) { console.error("Error resetting users:", e); }
+      }
+    }
+    if (selected.wallets_transactions) {
+      const defaultWallets = [
+        { providerId: "prov_777703195", providerName: "أمين الغرباني", phoneNumber: "777703195", currentBalance: 9000, totalEarnings: 9000, totalWithdrawals: 0, status: "active" }
+      ];
+      const defaultTransactions = [
+        { id: "tx_1", providerId: "prov_777703195", type: "deposit", amount: 5000, dateTime: Date.now() - 1000 * 60 * 60 * 24 * 2, status: "completed", description: "شحن رصيد البداية - محفظة ترحيبية WAM", bookingId: "" },
+        { id: "tx_2", providerId: "prov_777703195", type: "payment", amount: 4000, dateTime: Date.now() - 1000 * 60 * 60 * 24, status: "completed", description: "أرباح حجز خدمة صيانة كهربائية مؤكدة", bookingId: "booking_1" }
+      ];
+      localStorage.setItem("wam_provider_wallets", JSON.stringify(defaultWallets));
+      localStorage.setItem("wam_transactions", JSON.stringify(defaultTransactions));
+      this.notify("provider_wallets");
+      this.notify("transactions");
+      if (firestore) {
+        try {
+          const snapWallets = await getDocs(fsCollection(firestore, "provider_wallets"));
+          for (const d of snapWallets.docs) { await deleteDoc(d.ref); }
+          for (const w of defaultWallets) { await setDoc(doc(firestore, "provider_wallets", w.providerId), w); }
+          const snapTxs = await getDocs(fsCollection(firestore, "transactions"));
+          for (const d of snapTxs.docs) { await deleteDoc(d.ref); }
+          for (const tx of defaultTransactions) { await setDoc(doc(firestore, "transactions", tx.id), tx); }
+        } catch (e) { console.error("Error resetting wallets_transactions:", e); }
+      }
+    }
   }
 
   // RESET ALL DATA TO SEED VALUES (for emergency recovery)

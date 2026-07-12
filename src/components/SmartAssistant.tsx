@@ -84,8 +84,14 @@ export default function SmartAssistant({
   const speakText = (text: string) => {
     if (!speechEnabled) return;
     
-    // Stop current speech
-    window.speechSynthesis.cancel();
+    // Stop current speech safely
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch (err) {
+        console.warn("SpeechSynthesis cancel failed:", err);
+      }
+    }
 
     // Clean markdown bold or list characters for cleaner speech
     const cleanText = text
@@ -93,16 +99,23 @@ export default function SmartAssistant({
       .replace(/\s+/g, " ")
       .trim();
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = "ar-SA"; // Standard Arabic
-    utterance.rate = 1.0;
-    utterance.pitch = 1.05;
+    if (typeof window !== "undefined" && window.speechSynthesis && typeof SpeechSynthesisUtterance !== "undefined") {
+      try {
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.lang = "ar-SA"; // Standard Arabic
+        utterance.rate = 1.0;
+        utterance.pitch = 1.05;
 
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+        utterance.onstart = () => setIsSpeaking(true);
+        utterance.onend = () => setIsSpeaking(false);
+        utterance.onerror = () => setIsSpeaking(false);
 
-    window.speechSynthesis.speak(utterance);
+        window.speechSynthesis.speak(utterance);
+      } catch (err) {
+        console.warn("SpeechSynthesis speak failed:", err);
+        setIsSpeaking(false);
+      }
+    }
   };
 
   // Toggle voice recognition
@@ -115,8 +128,14 @@ export default function SmartAssistant({
     if (isListening) {
       recognitionRef.current.stop();
     } else {
-      // Stop TTS playing
-      window.speechSynthesis.cancel();
+      // Stop TTS playing safely
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        try {
+          window.speechSynthesis.cancel();
+        } catch (err) {
+          console.warn(err);
+        }
+      }
       setIsSpeaking(false);
       recognitionRef.current.start();
     }
@@ -190,7 +209,13 @@ export default function SmartAssistant({
           <div className="flex items-center gap-2">
             <button 
               onClick={() => {
-                window.speechSynthesis.cancel();
+                if (typeof window !== "undefined" && window.speechSynthesis) {
+                  try {
+                    window.speechSynthesis.cancel();
+                  } catch (err) {
+                    console.warn(err);
+                  }
+                }
                 setIsSpeaking(false);
                 onClose();
               }} 

@@ -117,21 +117,60 @@ app.post("/api/assistant", async (req, res) => {
       parts: [{ text: message }]
     });
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents,
-      config: {
-        systemInstruction: systemInstruction || "أنت المساعد الذكي WAM لموقع وتطبيق 'كل خدمات اليمن' (دليل الخدمات والمحترفين في اليمن). مطور التطبيق هو WAM2026. رقم الدعم والاتصال هو 777644. أجب دائماً باللغة العربية بلهجة يمنية ودودة ومرحبة ومختصرة. ساعد المستخدم في معرفة المهن المتوفرة (السباكة، الكهرباء، التعليم، الرعاية الصحية، النقل، والخدمات التقنية) وكيفية الحجز. إذا سألوا عن معلومات سرية أو كلمات مرور، اعتذر بلطف دون إعطائهم أي شيء.",
-        temperature: 0.7,
-      }
-    });
+    // Add robust retry & fallback logic for Gemini models to avoid 503/temporary errors
+    let response = null;
+    const maxRetries = 2;
+    const modelsToTry = ["gemini-3.5-flash", "gemini-flash-latest"];
+    let lastError: any = null;
 
-    res.json({ text: response.text || "عذراً، لم أستطع معالجة هذا الطلب حالياً." });
+    for (const modelName of modelsToTry) {
+      for (let retry = 0; retry <= maxRetries; retry++) {
+        try {
+          console.log(`Attempting to generate content using model: ${modelName} (try ${retry + 1})...`);
+          const result = await ai.models.generateContent({
+            model: modelName,
+            contents,
+            config: {
+              systemInstruction: systemInstruction || "أنت المساعد الذكي WAM لموقع وتطبيق 'كل خدمات اليمن' (دليل الخدمات والمحترفين في اليمن). مطور التطبيق هو WAM2026. رقم الدعم والاتصال هو 777644. أجب دائماً باللغة العربية بلهجة يمنية ودودة ومرحبة ومختصرة. ساعد المستخدم في معرفة المهن المتوفرة (السباكة، الكهرباء، التعليم، الرعاية الصحية، النقل، والخدمات التقنية) وكيفية الحجز. إذا سألوا عن معلومات سرية أو كلمات مرور، اعتذر بلطف دون إعطائهم أي شيء.",
+              temperature: 0.7,
+            }
+          });
+          if (result && result.text) {
+            response = result;
+            break; // Successfully got response
+          }
+        } catch (err: any) {
+          lastError = err;
+          console.warn(`Attempt failed using model ${modelName} on try ${retry + 1}:`, err.message);
+          // Wait a bit before retrying if there are more attempts
+          if (retry < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * (retry + 1)));
+          }
+        }
+      }
+      if (response) {
+        break; // If we succeeded, don't try subsequent models
+      }
+    }
+
+    if (response && response.text) {
+      return res.json({ text: response.text });
+    }
+
+    // If both models and all retries failed, log and return a helpful local/offline fallback response
+    console.error("Gemini API Error after all retries and model fallbacks:", lastError);
+    return res.json({
+      text: `أنا المساعد الذكي WAM لموقع "كل خدمات اليمن". عذراً منك يا طيب، خوادم الذكاء الاصطناعي مضغوطة جداً حالياً (تنبيه 503 مؤقت). 
+      
+      لكن لا تقلق! يسعدني جداً مساعدتك يدوياً: يمكنك تصفح دليل الخدمات بالأسفل وحجز فنيين ممتازين في (السباكة، الكهرباء، التعليم، النقل، وغيرها). ولأي استفسار فني أو عطل في النظام، تفضل بالاتصال بدعمنا الفني المباشر على الرقم 777644. كيف يمكنني خدمتك في تصفح الأقسام؟`,
+      offline: true,
+      error: lastError ? lastError.message : "All AI models unavailable"
+    });
   } catch (error: any) {
-    console.error("Gemini API Error:", error);
-    res.status(500).json({ 
-      error: "حدث خطأ أثناء معالجة الطلب في خادم المساعد الذكي.",
-      details: error.message 
+    console.error("General API Error in /api/assistant route:", error);
+    res.json({ 
+      text: "عذراً يا طيب، حدث خطأ فني أثناء معالجة رسالتك. يرجى المحاولة مرة أخرى أو الاتصال بالدعم الفني على الرقم 777644.",
+      offline: true
     });
   }
 });

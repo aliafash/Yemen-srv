@@ -28,7 +28,9 @@ import {
   Download,
   CreditCard,
   Wallet,
-  Coins
+  Coins,
+  Star,
+  Video
 } from "lucide-react";
 import { db } from "../lib/db";
 import { customFirebaseConfig } from "../lib/firebase-custom-config";
@@ -63,6 +65,7 @@ export default function AdminPanel({
   currentUser
 }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<number>(0);
+  const [adminReviewFilter, setAdminReviewFilter] = useState("all");
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [confirmTitle, setConfirmTitle] = useState("");
   const [confirmDescription, setConfirmDescription] = useState("");
@@ -87,6 +90,17 @@ export default function AdminPanel({
   const [fbMessagingSenderId, setFbMessagingSenderId] = useState(customFirebaseConfig.messagingSenderId || "");
   const [isSavingFbConfig, setIsSavingFbConfig] = useState(false);
   const [saveFbConfigError, setSaveFbConfigError] = useState("");
+
+  const [resetSelCategories, setResetSelCategories] = useState(false);
+  const [resetSelProviders, setResetSelProviders] = useState(false);
+  const [resetSelPendings, setResetSelPendings] = useState(false);
+  const [resetSelBookings, setResetSelBookings] = useState(false);
+  const [resetSelChats, setResetSelChats] = useState(false);
+  const [resetSelNotifications, setResetSelNotifications] = useState(false);
+  const [resetSelFaqs, setResetSelFaqs] = useState(false);
+  const [resetSelUsers, setResetSelUsers] = useState(false);
+  const [resetSelWallets, setResetSelWallets] = useState(false);
+  const [resetSelectedLoading, setResetSelectedLoading] = useState(false);
 
   const handleSaveFbConfig = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -372,6 +386,7 @@ export default function AdminPanel({
     { name: "الأسئلة الشائعة", icon: HelpCircle },
     { name: "نظام المدفوعات والرسوم", icon: Coins },
     { name: "إدارة محافظ الفنيين", icon: Wallet },
+    { name: "إدارة المراجعات والتقييمات", icon: Star, badge: db.getReviews().filter(r => r.status === "pending").length },
     { name: "تصدير واستيراد البيانات (JSON)", icon: Database },
   ];
 
@@ -650,7 +665,7 @@ export default function AdminPanel({
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-slate-400 text-xs font-semibold mb-1">رقم هاتف الاتصال:</label>
                 <input 
@@ -667,6 +682,16 @@ export default function AdminPanel({
                   value={settings.supportWhatsapp} 
                   onChange={(e) => handleSettingsSave({ ...settings, supportWhatsapp: e.target.value })}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white text-center font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-400 text-xs font-semibold mb-1">البريد الإلكتروني للدعم:</label>
+                <input 
+                  type="email" 
+                  value={settings.supportEmail || ""} 
+                  onChange={(e) => handleSettingsSave({ ...settings, supportEmail: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white text-center font-mono"
+                  placeholder="name@example.com"
                 />
               </div>
             </div>
@@ -744,6 +769,19 @@ export default function AdminPanel({
                   className="w-4 h-4 accent-amber-500 cursor-pointer"
                 />
               </div>
+            </div>
+
+            <div className="flex items-center justify-between p-3.5 bg-slate-950 rounded-xl border border-slate-850">
+              <div>
+                <h5 className="font-bold text-white text-xs">تفعيل طلب التسجيل السريع للعملاء (Quick Registration) 👤</h5>
+                <p className="text-[10px] text-slate-500 mt-0.5">عند التفعيل، سيُطلب من الزوار إدخال أسمائهم وأرقام هواتفهم لإتمام عملية حجز موعد أو المباشرة بالدردشة الفورية.</p>
+              </div>
+              <input 
+                type="checkbox" 
+                checked={settings.isQuickRegistrationEnabled ?? true} 
+                onChange={(e) => handleSettingsSave({ ...settings, isQuickRegistrationEnabled: e.target.checked })}
+                className="w-4 h-4 accent-amber-500 cursor-pointer"
+              />
             </div>
 
             {/* About screen configuration */}
@@ -836,6 +874,39 @@ export default function AdminPanel({
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white leading-relaxed"
                   placeholder="المنصة الأولى لربط العملاء بالمهنيين..."
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                <div>
+                  <label className="block text-slate-400 text-xs font-semibold mb-1">حساب تليجرام:</label>
+                  <input 
+                    type="text" 
+                    value={settings.aboutTelegram || ""} 
+                    onChange={(e) => handleSettingsSave({ ...settings, aboutTelegram: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-xs text-white text-left font-mono"
+                    placeholder="https://t.me/..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 text-xs font-semibold mb-1">حساب فيسبوك:</label>
+                  <input 
+                    type="text" 
+                    value={settings.aboutFacebook || ""} 
+                    onChange={(e) => handleSettingsSave({ ...settings, aboutFacebook: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-xs text-white text-left font-mono"
+                    placeholder="https://facebook.com/..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 text-xs font-semibold mb-1">موقع إلكتروني:</label>
+                  <input 
+                    type="text" 
+                    value={settings.aboutWebsite || ""} 
+                    onChange={(e) => handleSettingsSave({ ...settings, aboutWebsite: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-xs text-white text-left font-mono"
+                    placeholder="https://..."
+                  />
+                </div>
               </div>
 
               {/* Offline Safe Local Database Status Card */}
@@ -1089,56 +1160,160 @@ export default function AdminPanel({
             <h4 className="font-extrabold text-white text-sm">👨‍🔧 إدارة مقدمي الخدمات النشطين في الدليل ({providers.length})</h4>
             <div className="space-y-3">
               {providers.map((p) => (
-                <div key={p.id} className="bg-slate-950 p-3.5 rounded-xl border border-slate-850 flex items-center justify-between flex-row-reverse text-right">
-                  <div className="flex items-center gap-3 flex-row-reverse overflow-hidden">
-                    <img src={p.imageUrl} alt={p.name} className="w-10 h-10 rounded object-cover shrink-0 border border-slate-800" />
-                    <div className="truncate">
-                      <h5 className="font-bold text-white text-xs truncate flex items-center gap-1 flex-row-reverse">
-                        {p.name}
-                        {p.isVerified && <span className="text-emerald-400">✓</span>}
-                      </h5>
-                      <p className="text-[10px] text-slate-400 truncate">{p.category} - {p.subCategory} | هاتف: <span className="font-mono">{p.phone}</span></p>
-                      <p className="text-[9px] text-slate-500">حجوزات: {p.bookingsCount || 0} | مشاهدات: {p.viewsCount || 0} | أرباح: {p.totalEarnings || 0} ريال</p>
+                <div key={p.id} className="bg-slate-950 p-4 rounded-xl border border-slate-850 flex flex-col gap-3 text-right">
+                  <div className="flex items-center justify-between flex-row-reverse">
+                    <div className="flex items-center gap-3 flex-row-reverse overflow-hidden">
+                      <img src={p.imageUrl} alt={p.name} className="w-11 h-11 rounded-lg object-cover shrink-0 border border-slate-800" />
+                      <div className="truncate">
+                        <h5 className="font-extrabold text-white text-xs sm:text-sm truncate flex items-center gap-1 flex-row-reverse">
+                          {p.name}
+                          {p.isVerified && <span className="text-emerald-400">✓</span>}
+                          {p.isPinned && <span className="text-amber-500 text-[10px]">⭐ VIP</span>}
+                        </h5>
+                        <p className="text-[10px] text-slate-400 truncate">{p.category} - {p.subCategory} | هاتف: <span className="font-mono">{p.phone}</span></p>
+                        <p className="text-[9px] text-slate-500">حجوزات: {p.bookingsCount || 0} | مشاهدات: {p.viewsCount || 0} | أرباح: {p.totalEarnings || 0} ريال</p>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex gap-1.5 shrink-0">
                     <button
                       onClick={() => handleBanProvider(p)}
-                      className="p-1.5 bg-rose-950 hover:bg-rose-900 border border-rose-500/25 rounded text-rose-300 cursor-pointer"
+                      className="p-2 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/20 rounded-lg text-rose-300 transition-all cursor-pointer active:scale-95"
                       title="حظر وإزالة الفني"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
-                    <button
-                      onClick={() => {
-                        const updated = providers.map(prov => prov.id === p.id ? { ...prov, isVerified: !prov.isVerified } : prov);
+                  </div>
+
+                  {/* Instant Sync Checkbox Controls */}
+                  <div className="grid grid-cols-2 xs:grid-cols-4 gap-2 pt-2 border-t border-slate-900/50">
+                    {/* Checkbox 1: Verified */}
+                    <label className="flex items-center justify-end gap-1.5 cursor-pointer bg-slate-900/40 hover:bg-slate-900 p-1.5 rounded-lg border border-slate-800/40 select-none">
+                      <span className="text-[10px] sm:text-xs text-slate-300 font-bold">موثق ✓</span>
+                      <input 
+                        type="checkbox" 
+                        checked={p.isVerified || false}
+                        onChange={() => {
+                          const updated = providers.map(prov => prov.id === p.id ? { ...prov, isVerified: !prov.isVerified } : prov);
+                          db.saveProviders(updated);
+                          onRefreshData();
+                        }}
+                        className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                      />
+                    </label>
+
+                    {/* Checkbox 2: Pinned / VIP */}
+                    <label className="flex items-center justify-end gap-1.5 cursor-pointer bg-slate-900/40 hover:bg-slate-900 p-1.5 rounded-lg border border-slate-800/40 select-none">
+                      <span className="text-[10px] sm:text-xs text-slate-300 font-bold">VIP ⭐️</span>
+                      <input 
+                        type="checkbox" 
+                        checked={p.isPinned || false}
+                        onChange={() => {
+                          const updated = providers.map(prov => prov.id === p.id ? { ...prov, isPinned: !prov.isPinned } : prov);
+                          db.saveProviders(updated);
+                          onRefreshData();
+                        }}
+                        className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                      />
+                    </label>
+
+                    {/* Checkbox 3: Recommended */}
+                    <label className="flex items-center justify-end gap-1.5 cursor-pointer bg-slate-900/40 hover:bg-slate-900 p-1.5 rounded-lg border border-slate-800/40 select-none">
+                      <span className="text-[10px] sm:text-xs text-slate-300 font-bold">موصى به 🔥</span>
+                      <input 
+                        type="checkbox" 
+                        checked={p.isRecommended || false}
+                        onChange={() => {
+                          const updated = providers.map(prov => prov.id === p.id ? { ...prov, isRecommended: !prov.isRecommended } : prov);
+                          db.saveProviders(updated);
+                          onRefreshData();
+                        }}
+                        className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                      />
+                    </label>
+
+                    {/* Checkbox 4: Available */}
+                    <label className="flex items-center justify-end gap-1.5 cursor-pointer bg-slate-900/40 hover:bg-slate-900 p-1.5 rounded-lg border border-slate-800/40 select-none">
+                      <span className="text-[10px] sm:text-xs text-slate-300 font-bold">نشط/متاح 🟢</span>
+                      <input 
+                        type="checkbox" 
+                        checked={p.isAvailable || false}
+                        onChange={() => {
+                          const updated = providers.map(prov => prov.id === p.id ? { ...prov, isAvailable: !prov.isAvailable } : prov);
+                          db.saveProviders(updated);
+                          onRefreshData();
+                        }}
+                        className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                      />
+                    </label>
+                  </div>
+
+                  {/* Password Viewer/Editor */}
+                  <div className="flex items-center gap-2 mt-1 bg-slate-900/40 p-2 rounded-lg border border-slate-800/40">
+                    <span className="text-[10px] text-slate-400 font-bold shrink-0">كلمة المرور:</span>
+                    <input
+                      type="text"
+                      value={(() => {
+                        try {
+                          return p.password ? atob(p.password) : "123456";
+                        } catch {
+                          return p.password || "123456";
+                        }
+                      })()}
+                      onChange={(e) => {
+                        const newPass = btoa(e.target.value);
+                        const updated = providers.map(prov => prov.id === p.id ? { ...prov, password: newPass } : prov);
                         db.saveProviders(updated);
                         onRefreshData();
                       }}
-                      className={`px-2 py-1 border rounded text-[9px] font-bold cursor-pointer ${
-                        p.isVerified 
-                          ? "bg-emerald-950/40 border-emerald-500/25 text-emerald-400" 
-                          : "bg-slate-900 border-slate-800 text-slate-400"
-                      }`}
-                      title="تعديل حالة التوثيق"
-                    >
-                      {p.isVerified ? "موثق" : "غير موثق"}
-                    </button>
+                      className="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[10px] text-amber-500 font-mono w-full text-left"
+                    />
+                  </div>
+
+                  {/* Action Buttons (WhatsApp, SMS, notification) */}
+                  <div className="flex gap-2 mt-1">
                     <button
                       onClick={() => {
-                        const updated = providers.map(prov => prov.id === p.id ? { ...prov, isPinned: !prov.isPinned } : prov);
-                        db.saveProviders(updated);
-                        onRefreshData();
+                        const text = encodeURIComponent(`السلام عليكم يا فني ${p.name}، نتواصل معك من إدارة منصة WAM خدمات اليمن.`);
+                        window.open(`https://wa.me/967${p.phone}?text=${text}`, "_blank");
                       }}
-                      className={`px-2 py-1 border rounded text-[9px] font-bold cursor-pointer ${
-                        p.isPinned 
-                          ? "bg-amber-950/40 border-amber-500/25 text-amber-400" 
-                          : "bg-slate-900 border-slate-800 text-slate-400"
-                      }`}
-                      title="تثبيت VIP"
+                      className="flex-1 py-1.5 px-2 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/20 text-emerald-400 rounded-lg text-[9px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-all active:scale-[0.97]"
                     >
-                      {p.isPinned ? "VIP مثبت" : "ترقية VIP"}
+                      💬 واتساب
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        window.open(`sms:${p.phone}?body=${encodeURIComponent("إشعار إداري عاجل من إدارة تطبيق WAM كل خدمات اليمن")}`, "_blank");
+                      }}
+                      className="flex-1 py-1.5 px-2 bg-sky-950/40 hover:bg-sky-950/60 border border-sky-500/20 text-sky-400 rounded-lg text-[9px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-all active:scale-[0.97]"
+                    >
+                      📱 SMS
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const msgText = prompt(`اكتب نص الإشعار المخصص لإرساله فوراً للفني (${p.name}):`);
+                        if (msgText && msgText.trim()) {
+                          const notifs = db.getNotifications();
+                          const newNotif = {
+                            id: `not_admin_${Date.now()}`,
+                            title: `إشعار إداري عاجل 📢`,
+                            body: msgText,
+                            type: "general" as const,
+                            targetType: "specific" as const,
+                            targetId: p.id,
+                            targetRole: "provider" as const,
+                            isRead: false,
+                            timestamp: Date.now()
+                          };
+                          db.saveNotifications([newNotif, ...notifs]);
+                          db.addAuditLog("ADMIN_NOTIFICATION_SENT", "WAM_ADMIN", `تم إرسال إشعار مخصص للفني ${p.name}`);
+                          alert("✅ تم إرسال الإشعار وتوجيهه فوراً إلى مركز الإشعارات الخاص بالفني!");
+                        }
+                      }}
+                      className="flex-1 py-1.5 px-2 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-500/20 text-amber-400 rounded-lg text-[9px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-all active:scale-[0.97]"
+                    >
+                      🔔 إرسال إشعار
                     </button>
                   </div>
                 </div>
@@ -1158,7 +1333,22 @@ export default function AdminPanel({
                     <h5 className="font-bold text-white text-xs">{u.name}</h5>
                     <p className="text-[10px] text-slate-400">هاتف: <span className="font-mono">{u.phone}</span> | الصلاحية: <span className="text-amber-500 font-bold">{u.role}</span></p>
                   </div>
-                  <div className="flex gap-1.5 shrink-0">
+                  <div className="flex gap-1.5 shrink-0 items-center">
+                    <button
+                      onClick={() => {
+                        if (confirm(`هل أنت متأكد تماماً من رغبتك في حذف العميل / الحساب: "${u.name}"؟ سيتم إزالته نهائياً.`)) {
+                          const updated = users.filter(usr => usr.id !== u.id);
+                          db.saveUsers(updated);
+                          onRefreshData();
+                          db.addAuditLog("USER_DELETED", "WAM_ADMIN", `تم حذف المستخدم ${u.name}`);
+                          alert("✅ تم حذف حساب العميل بنجاح من الدليل.");
+                        }
+                      }}
+                      className="p-1.5 bg-rose-950/50 hover:bg-rose-900/80 border border-rose-500/20 text-rose-300 rounded text-[9px] font-bold cursor-pointer transition-colors active:scale-95 flex items-center justify-center"
+                      title="حذف الحساب"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                     <select
                       value={u.role}
                       onChange={(e) => {
@@ -1186,6 +1376,116 @@ export default function AdminPanel({
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* PASSWORD RECOVERY CODES VISUALIZER AND MANAGER */}
+            <div className="mt-8 pt-6 border-t border-slate-900 space-y-4">
+              <div className="flex justify-between items-center flex-row-reverse">
+                <div>
+                  <h4 className="font-extrabold text-amber-500 text-xs sm:text-sm">🔑 طلبات استرداد الحسابات وأكواد الأمان</h4>
+                  <p className="text-[10px] text-slate-400 mt-0.5">أكواد استعادة كلمة المرور المولدة والمطلوبة من العملاء والفنيين</p>
+                </div>
+                <button
+                  onClick={() => {
+                    if (confirm("هل تريد تفريغ وحذف جميع سجلات طلبات استرداد الحسابات؟")) {
+                      db.saveCollection("recovery_requests", []);
+                      onRefreshData();
+                      alert("✅ تم تفريغ السجل بالكامل بنجاح.");
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-850 text-rose-400 border border-slate-800 rounded-lg text-[9px] font-bold cursor-pointer transition-all"
+                >
+                  تفريغ السجل 🗑️
+                </button>
+              </div>
+
+              {(() => {
+                const recoveryRequests = db.getCollection("recovery_requests") || [];
+                if (recoveryRequests.length === 0) {
+                  return (
+                    <div className="p-5 text-center text-slate-500 bg-slate-950/40 rounded-xl border border-dashed border-slate-850/60 text-[10px]">
+                      لا توجد أي طلبات نشطة لاسترداد الحسابات حالياً.
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3">
+                    {recoveryRequests.map((req: any) => (
+                      <div key={req.id} className="bg-slate-900 p-4 rounded-xl border border-slate-850/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-right">
+                        
+                        {/* Right side details */}
+                        <div className="space-y-1 order-1 sm:order-2">
+                          <div className="flex items-center gap-2 justify-end">
+                            <span className={`px-2 py-0.5 rounded text-[8px] font-bold ${
+                              req.status === "completed" 
+                                ? "bg-emerald-950 text-emerald-400 border border-emerald-500/10" 
+                                : "bg-amber-950 text-amber-400 border border-amber-500/10 animate-pulse"
+                            }`}>
+                              {req.status === "completed" ? "✓ مكتملة ومحدثة" : "⏳ قيد الانتظار"}
+                            </span>
+                            <span className="font-bold text-white text-xs">{req.name}</span>
+                          </div>
+                          
+                          <p className="text-[10px] text-slate-400">
+                            رقم الهاتف: <span className="font-mono font-bold text-white select-all">{req.phone}</span> | 
+                            الحساب: <span className="text-sky-400 font-bold">{req.userType === "provider" ? "فني/مقدم خدمة" : "عميل/مشرف"}</span>
+                          </p>
+                          <p className="text-[9px] text-slate-550">
+                            تاريخ الطلب: {new Date(req.timestamp).toLocaleString("ar")}
+                          </p>
+                        </div>
+
+                        {/* Left side actions and code copy bubble */}
+                        <div className="flex items-center gap-2 order-2 sm:order-1 self-end sm:self-center">
+                          <button
+                            onClick={() => {
+                              if (confirm("هل أنت متأكد من حذف هذا السجل؟")) {
+                                const filtered = recoveryRequests.filter((r: any) => r.id !== req.id);
+                                db.saveCollection("recovery_requests", filtered);
+                                onRefreshData();
+                              }
+                            }}
+                            className="p-2 bg-slate-900 hover:bg-rose-950/50 text-slate-400 hover:text-rose-400 rounded-lg border border-slate-850 hover:border-rose-500/20 cursor-pointer text-[10px]"
+                            title="حذف الطلب"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+
+                          {req.status !== "completed" && (
+                            <button
+                              onClick={() => {
+                                const updated = recoveryRequests.map((r: any) => r.id === req.id ? { ...r, status: "completed" } : r);
+                                db.saveCollection("recovery_requests", updated);
+                                onRefreshData();
+                                alert("✅ تم تمييز الطلب كمكتمل بنجاح.");
+                              }}
+                              className="px-2.5 py-1.5 bg-emerald-950/40 hover:bg-emerald-950 text-emerald-400 border border-emerald-500/20 rounded-lg text-[9px] font-bold cursor-pointer transition-colors"
+                            >
+                              تعليم كمكتمل ✓
+                            </button>
+                          )}
+
+                          {/* Code container */}
+                          <div className="bg-slate-900/90 border border-amber-500/20 px-3 py-1.5 rounded-lg flex items-center gap-2 select-all font-mono text-[10px] text-amber-400 font-extrabold">
+                            <span>{req.code}</span>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(req.code);
+                                alert(`📋 تم نسخ كود الاسترداد [${req.code}] بنجاح!\nأرسله للفني يدويًا لإكمال تغيير كلمة المرور.`);
+                              }}
+                              className="text-[9px] font-bold text-amber-500 hover:text-amber-400 underline cursor-pointer bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20"
+                            >
+                              نسخ 📋
+                            </button>
+                          </div>
+                        </div>
+
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}
@@ -1585,8 +1885,209 @@ export default function AdminPanel({
           <ProviderWalletsScreen onRefreshData={onRefreshData} />
         )}
 
-        {/* TAB 22: Export and Import of core data as JSON */}
+        {/* TAB 21: Provider Wallets Screen */}
+        {activeTab === 21 && (
+          <ProviderWalletsScreen onRefreshData={onRefreshData} />
+        )}
+
+        {/* TAB 22: Reviews & Ratings Approval Management */}
         {activeTab === 22 && (
+          <div className="space-y-4 text-right">
+            <div className="flex items-center justify-between flex-row-reverse border-b border-slate-800 pb-2.5">
+              <h4 className="font-extrabold text-white text-sm">⭐️ إدارة مراجعات وتقييمات الفنيين والزبائن</h4>
+              <span className="text-[10px] bg-slate-950 px-2.5 py-1 rounded-full text-amber-500 border border-slate-850 font-bold">إقرار المشرف العام</span>
+            </div>
+
+            {/* Filter Buttons */}
+            <div className="flex gap-2 flex-row-reverse justify-start overflow-x-auto no-scrollbar py-1">
+              {["all", "pending", "approved", "rejected"].map((st) => {
+                const translate: Record<string, string> = {
+                  all: "الكل",
+                  pending: "قيد الانتظار",
+                  approved: "المعتمدة",
+                  rejected: "المرفوضة"
+                };
+                const count = st === "all" 
+                  ? db.getReviews().length 
+                  : db.getReviews().filter(r => r.status === st).length;
+                
+                return (
+                  <button
+                    key={st}
+                    onClick={() => setAdminReviewFilter(st)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer transition-all shrink-0 ${
+                      adminReviewFilter === st
+                        ? "bg-amber-600 text-black font-black"
+                        : "bg-slate-950 text-slate-400 border border-slate-850 hover:bg-slate-900"
+                    }`}
+                  >
+                    {translate[st]} ({count})
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Reviews List */}
+            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+              {(() => {
+                const reviews = db.getReviews().filter(r => adminReviewFilter === "all" || r.status === adminReviewFilter);
+                
+                if (reviews.length === 0) {
+                  return (
+                    <div className="text-center py-12 text-slate-500 text-xs">
+                      لا توجد تقييمات أو مراجعات في هذا القسم حالياً.
+                    </div>
+                  );
+                }
+
+                return reviews.map((rev) => (
+                  <div key={rev.id} className="bg-slate-950 p-4 rounded-xl border border-slate-850 space-y-3 text-right">
+                    <div className="flex justify-between items-start flex-row-reverse">
+                      <div>
+                        <h5 className="font-bold text-white text-xs">{rev.userName}</h5>
+                        <p className="text-[9px] text-slate-500">هاتف: {rev.userPhone} | تاريخ: {new Date(rev.timestamp).toLocaleDateString("ar-YE")}</p>
+                        <p className="text-[10px] text-amber-500 font-extrabold mt-1">المستهدف: {rev.providerName}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-0.5">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`w-3.5 h-3.5 ${i < rev.rating ? "fill-amber-400 text-amber-400" : "text-slate-800"}`}
+                            />
+                          ))}
+                        </div>
+                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
+                          rev.status === "approved" 
+                            ? "bg-emerald-950/50 text-emerald-400 border border-emerald-900/30"
+                            : rev.status === "rejected"
+                            ? "bg-rose-950/50 text-rose-400 border border-rose-900/30"
+                            : "bg-amber-950/50 text-amber-400 border border-amber-900/30 animate-pulse"
+                        }`}>
+                          {rev.status === "approved" ? "معتمد ✓" : rev.status === "rejected" ? "مرفوض ✗" : "بانتظار الموافقة ⏳"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {rev.comment && (
+                      <p className="text-xs text-slate-300 bg-slate-900/40 p-2.5 rounded-lg border border-slate-900 leading-relaxed">
+                        {rev.comment}
+                      </p>
+                    )}
+
+                    {/* Media attachments */}
+                    {(rev.imageUrl || rev.videoUrl) && (
+                      <div className="flex gap-2 flex-wrap pt-1 flex-row-reverse">
+                        {rev.imageUrl && (
+                          <div className="relative">
+                            <img
+                              src={rev.imageUrl}
+                              alt="مرفق تقييم"
+                              className="w-20 h-20 rounded object-cover border border-slate-800"
+                            />
+                            <span className="absolute bottom-1 right-1 bg-black/60 text-[8px] px-1 rounded text-white font-mono">صورة صيانة</span>
+                          </div>
+                        )}
+                        {rev.videoUrl && (
+                          <div className="w-20 h-20 rounded bg-slate-900 border border-slate-800 flex flex-col items-center justify-center text-[9px] text-rose-400 font-extrabold gap-1">
+                            <Video className="w-6 h-6 text-rose-500" />
+                            <span>تأكيد مرئي (فيديو)</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Admin control actions */}
+                    <div className="flex gap-2 justify-end pt-1">
+                      {rev.status === "pending" && (
+                        <>
+                          <button
+                            onClick={() => {
+                              const allReviews = db.getReviews();
+                              const updatedReviews = allReviews.map(r => r.id === rev.id ? { ...r, status: "approved" as const } : r);
+                              db.saveReviews(updatedReviews);
+
+                              const approvedForProvider = updatedReviews.filter(r => r.providerId === rev.providerId && r.status === "approved");
+                              const sum = approvedForProvider.reduce((acc, curr) => acc + curr.rating, 0);
+                              const avg = approvedForProvider.length > 0 ? parseFloat((sum / approvedForProvider.length).toFixed(1)) : 5.0;
+
+                              const currentProviders = db.getProviders();
+                              const updatedProviders = currentProviders.map(p => {
+                                if (p.id === rev.providerId) {
+                                  return {
+                                    ...p,
+                                    rating: avg,
+                                    reviewCount: approvedForProvider.length
+                                  };
+                                }
+                                return p;
+                              });
+                              db.saveProviders(updatedProviders);
+                              onRefreshData();
+                              db.addAuditLog("REVIEW_APPROVED", "WAM_ADMIN", `تمت الموافقة على تقييم العميل لـ ${rev.providerName}`);
+                              alert("✅ تم قبول المراجعة ونشرها للعامة، وتحديث متوسط تقييم الفني فوراً!");
+                            }}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-black text-[10px] font-extrabold rounded-lg cursor-pointer transition-colors"
+                          >
+                            موافقة ونشر ✓
+                          </button>
+                          <button
+                            onClick={() => {
+                              const allReviews = db.getReviews();
+                              const updatedReviews = allReviews.map(r => r.id === rev.id ? { ...r, status: "rejected" as const } : r);
+                              db.saveReviews(updatedReviews);
+                              onRefreshData();
+                              db.addAuditLog("REVIEW_REJECTED", "WAM_ADMIN", `تم رفض مراجعة الفني ${rev.providerName}`);
+                              alert("❌ تم رفض المراجعة وإخفاؤها عن العامة بنجاح.");
+                            }}
+                            className="px-3 py-1.5 bg-rose-950 text-rose-300 hover:bg-rose-900 text-[10px] font-bold rounded-lg cursor-pointer transition-colors"
+                          >
+                            رفض ✗
+                          </button>
+                        </>
+                      )}
+                      <button
+                        onClick={() => {
+                          if (confirm("هل أنت متأكد تماماً من رغبتك في حذف هذا التقييم نهائياً من قاعدة البيانات؟")) {
+                            const allReviews = db.getReviews();
+                            const updatedReviews = allReviews.filter(r => r.id !== rev.id);
+                            db.saveReviews(updatedReviews);
+
+                            const approvedForProvider = updatedReviews.filter(r => r.providerId === rev.providerId && r.status === "approved");
+                            const sum = approvedForProvider.reduce((acc, curr) => acc + curr.rating, 0);
+                            const avg = approvedForProvider.length > 0 ? parseFloat((sum / approvedForProvider.length).toFixed(1)) : 5.0;
+
+                            const currentProviders = db.getProviders();
+                            const updatedProviders = currentProviders.map(p => {
+                              if (p.id === rev.providerId) {
+                                return {
+                                  ...p,
+                                  rating: avg,
+                                  reviewCount: approvedForProvider.length
+                                };
+                              }
+                              return p;
+                            });
+                            db.saveProviders(updatedProviders);
+                            onRefreshData();
+                            db.addAuditLog("REVIEW_DELETED", "WAM_ADMIN", `تم حذف مراجعة ${rev.providerName} نهائياً`);
+                            alert("🗑️ تم حذف التقييم نهائياً وإعادة حساب المعدلات.");
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:border-rose-900/30 text-[10px] font-medium rounded-lg cursor-pointer transition-colors"
+                      >
+                        حذف نهائي 🗑️
+                      </button>
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 23: Export and Import of core data as JSON */}
+        {activeTab === 23 && (
           <div className="space-y-6 text-right">
             <div className="bg-slate-950 border border-slate-850 rounded-2xl p-5 md:p-6 space-y-4">
               <h4 className="font-extrabold text-white text-sm sm:text-base flex items-center gap-2 flex-row-reverse">
@@ -1676,6 +2177,218 @@ export default function AdminPanel({
               </div>
             </div>
 
+            {/* Selective Data Reset panel (شاشة تهيئة وتصفير البيانات) */}
+            <div className="bg-slate-950 border border-slate-850 rounded-2xl p-5 md:p-6 space-y-4">
+              <h4 className="font-extrabold text-white text-sm sm:text-base flex items-center gap-2 flex-row-reverse">
+                <Trash2 className="w-5.5 h-5.5 text-rose-500" />
+                <span>شاشة تهيئة وتصفير البيانات ⚠️</span>
+              </h4>
+              <p className="text-slate-400 text-xs leading-relaxed">
+                حدد أنواع البيانات التي تريد تصفيرها وإعادتها للصفر أو تصفيرها للقيم الافتراضية النقية (سيتم حذفها نهائياً ومزامنتها سحابياً تلقائياً):
+              </p>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-2">
+                <label className="flex items-center justify-end gap-2 p-3 bg-slate-900/40 hover:bg-slate-900 rounded-xl border border-slate-800/50 cursor-pointer select-none">
+                  <span className="text-xs text-slate-300 font-bold">الأقسام الرئيسية والفرعية</span>
+                  <input
+                    type="checkbox"
+                    checked={resetSelCategories}
+                    onChange={(e) => setResetSelCategories(e.target.checked)}
+                    className="rounded bg-slate-950 border-slate-800 text-rose-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+
+                <label className="flex items-center justify-end gap-2 p-3 bg-slate-900/40 hover:bg-slate-900 rounded-xl border border-slate-800/50 cursor-pointer select-none">
+                  <span className="text-xs text-slate-300 font-bold">مزودي الخدمة والفنيين</span>
+                  <input
+                    type="checkbox"
+                    checked={resetSelProviders}
+                    onChange={(e) => setResetSelProviders(e.target.checked)}
+                    className="rounded bg-slate-950 border-slate-800 text-rose-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+
+                <label className="flex items-center justify-end gap-2 p-3 bg-slate-900/40 hover:bg-slate-900 rounded-xl border border-slate-800/50 cursor-pointer select-none">
+                  <span className="text-xs text-slate-300 font-bold">طلبات الانضمام المعلقة</span>
+                  <input
+                    type="checkbox"
+                    checked={resetSelPendings}
+                    onChange={(e) => setResetSelPendings(e.target.checked)}
+                    className="rounded bg-slate-950 border-slate-800 text-rose-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+
+                <label className="flex items-center justify-end gap-2 p-3 bg-slate-900/40 hover:bg-slate-900 rounded-xl border border-slate-800/50 cursor-pointer select-none">
+                  <span className="text-xs text-slate-300 font-bold">سجل وحجوزات المواعيد</span>
+                  <input
+                    type="checkbox"
+                    checked={resetSelBookings}
+                    onChange={(e) => setResetSelBookings(e.target.checked)}
+                    className="rounded bg-slate-950 border-slate-800 text-rose-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+
+                <label className="flex items-center justify-end gap-2 p-3 bg-slate-900/40 hover:bg-slate-900 rounded-xl border border-slate-800/50 cursor-pointer select-none">
+                  <span className="text-xs text-slate-300 font-bold">سجل المحادثات والرسائل</span>
+                  <input
+                    type="checkbox"
+                    checked={resetSelChats}
+                    onChange={(e) => setResetSelChats(e.target.checked)}
+                    className="rounded bg-slate-950 border-slate-800 text-rose-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+
+                <label className="flex items-center justify-end gap-2 p-3 bg-slate-900/40 hover:bg-slate-900 rounded-xl border border-slate-800/50 cursor-pointer select-none">
+                  <span className="text-xs text-slate-300 font-bold">سجل الإشعارات والأخبار</span>
+                  <input
+                    type="checkbox"
+                    checked={resetSelNotifications}
+                    onChange={(e) => setResetSelNotifications(e.target.checked)}
+                    className="rounded bg-slate-950 border-slate-800 text-rose-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+
+                <label className="flex items-center justify-end gap-2 p-3 bg-slate-900/40 hover:bg-slate-900 rounded-xl border border-slate-800/50 cursor-pointer select-none">
+                  <span className="text-xs text-slate-300 font-bold">الأسئلة الشائعة والبنرات</span>
+                  <input
+                    type="checkbox"
+                    checked={resetSelFaqs}
+                    onChange={(e) => setResetSelFaqs(e.target.checked)}
+                    className="rounded bg-slate-950 border-slate-800 text-rose-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+
+                <label className="flex items-center justify-end gap-2 p-3 bg-slate-900/40 hover:bg-slate-900 rounded-xl border border-slate-800/50 cursor-pointer select-none">
+                  <span className="text-xs text-slate-300 font-bold">دليل وحسابات المستخدمين</span>
+                  <input
+                    type="checkbox"
+                    checked={resetSelUsers}
+                    onChange={(e) => setResetSelUsers(e.target.checked)}
+                    className="rounded bg-slate-950 border-slate-800 text-rose-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+
+                <label className="flex items-center justify-end gap-2 p-3 bg-slate-900/40 hover:bg-slate-900 rounded-xl border border-slate-800/50 cursor-pointer select-none">
+                  <span className="text-xs text-slate-300 font-bold">المحافظ والمعاملات المالية</span>
+                  <input
+                    type="checkbox"
+                    checked={resetSelWallets}
+                    onChange={(e) => setResetSelWallets(e.target.checked)}
+                    className="rounded bg-slate-950 border-slate-800 text-rose-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+              </div>
+
+              <div className="pt-3">
+                <button
+                  onClick={async () => {
+                    const targets = [];
+                    if (resetSelCategories) targets.push("الأقسام");
+                    if (resetSelProviders) targets.push("مزودي الخدمات");
+                    if (resetSelPendings) targets.push("طلبات الانضمام");
+                    if (resetSelBookings) targets.push("سجل الحجوزات");
+                    if (resetSelChats) targets.push("سجل المحادثات والرسائل");
+                    if (resetSelNotifications) targets.push("سجل الإشعارات");
+                    if (resetSelFaqs) targets.push("الأسئلة الشائعة والبنرات");
+                    if (resetSelUsers) targets.push("دليل وحسابات المستخدمين");
+                    if (resetSelWallets) targets.push("المحافظ والمعاملات المالية");
+
+                    if (targets.length === 0) {
+                      alert("⚠️ يرجى اختيار نوع واحد من البيانات على الأقل لتصفيته.");
+                      return;
+                    }
+
+                    const confirmMsg = `⚠️ تنبيه أمني هام! هل أنت متأكد تماماً من رغبتك في تصفير وتهيئة البيانات التالية وحذفها نهائياً من قاعدة البيانات المحلية والسحابية؟\n\n${targets.map(t => `• ${t}`).join("\n")}\n\nإجراء التصفير لا يمكن التراجع عنه أبداً!`;
+                    if (!confirm(confirmMsg)) return;
+
+                    setResetSelectedLoading(true);
+                    try {
+                      await db.resetSelectedCollections({
+                        categories: resetSelCategories,
+                        providers: resetSelProviders,
+                        pending_providers: resetSelPendings,
+                        bookings: resetSelBookings,
+                        chats_messages: resetSelChats,
+                        notifications: resetSelNotifications,
+                        faqs_banners: resetSelFaqs,
+                        users: resetSelUsers,
+                        wallets_transactions: resetSelWallets
+                      });
+
+                      // Reset selection checkboxes
+                      setResetSelCategories(false);
+                      setResetSelProviders(false);
+                      setResetSelPendings(false);
+                      setResetSelBookings(false);
+                      setResetSelChats(false);
+                      setResetSelNotifications(false);
+                      setResetSelFaqs(false);
+                      setResetSelUsers(false);
+                      setResetSelWallets(false);
+
+                      onRefreshData();
+                      alert("✅ تم تصفير وتهيئة البيانات المحددة ومزامنتها بنجاح تام!");
+                    } catch (err: any) {
+                      console.error(err);
+                      alert(`❌ حدث خطأ أثناء تصفير البيانات: ${err?.message || String(err)}`);
+                    } finally {
+                      setResetSelectedLoading(false);
+                    }
+                  }}
+                  disabled={resetSelectedLoading}
+                  className="w-full py-3.5 bg-rose-600 hover:bg-rose-500 disabled:bg-rose-900/40 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98] shadow-md shadow-rose-950/20"
+                >
+                  <Trash2 className="w-4 h-4 text-white" />
+                  <span>{resetSelectedLoading ? "جاري تهيئة وتصفير البيانات المحددة..." : "تطبيق تصفير وتهيئة البيانات المحددة ⚡"}</span>
+                </button>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  onClick={() => {
+                    const backupObj: Record<string, any> = {};
+                    const anySelected = resetSelCategories || resetSelProviders || resetSelPendings || resetSelBookings || resetSelChats || resetSelNotifications || resetSelFaqs || resetSelUsers || resetSelWallets;
+                    
+                    if (!anySelected || resetSelCategories) backupObj.categories = db.getCategories();
+                    if (!anySelected || resetSelProviders) backupObj.providers = db.getProviders();
+                    if (!anySelected || resetSelPendings) backupObj.pendingProviders = db.getPendingProviders();
+                    if (!anySelected || resetSelBookings) backupObj.bookings = db.getBookings();
+                    if (!anySelected || resetSelChats) {
+                      backupObj.chats = db.getChats();
+                      backupObj.messages = JSON.parse(localStorage.getItem("wam_messages") || "[]");
+                    }
+                    if (!anySelected || resetSelNotifications) backupObj.notifications = db.getNotifications();
+                    if (!anySelected || resetSelFaqs) {
+                      backupObj.faqs = JSON.parse(localStorage.getItem("wam_faqs") || "[]");
+                      backupObj.banners = JSON.parse(localStorage.getItem("wam_banners") || "[]");
+                    }
+                    if (!anySelected || resetSelUsers) backupObj.users = db.getUsers();
+                    if (!anySelected || resetSelWallets) {
+                      backupObj.transactions = JSON.parse(localStorage.getItem("wam_transactions") || "[]");
+                      backupObj.wallets = JSON.parse(localStorage.getItem("wam_wallets") || "[]");
+                    }
+                    
+                    const dataStr = JSON.stringify(backupObj, null, 2);
+                    const dataBlob = new Blob([dataStr], { type: "application/json" });
+                    const url = URL.createObjectURL(dataBlob);
+                    const link = document.createElement("a");
+                    const dateStr = new Date().toISOString().slice(0, 10);
+                    link.href = url;
+                    link.download = `wam_backup_${anySelected ? "selected" : "full"}_${dateStr}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    alert("✅ تم إنشاء وتصدير النسخة الاحتياطية وحفظها بنجاح إلى ذاكرة الهاتف!");
+                  }}
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98] shadow-md shadow-indigo-950/20"
+                >
+                  <Download className="w-4 h-4 text-white" />
+                  <span>عمل نسخة احتياطية للبيانات المحددة أو كامل البيانات 💾</span>
+                </button>
+              </div>
+            </div>
+
             {/* Current Data Overview Statistics Cards */}
             <div className="bg-slate-950 border border-slate-850 rounded-2xl p-5 space-y-3">
               <h5 className="font-extrabold text-white text-xs sm:text-sm text-right">📊 حجم البيانات الحالية المخزنة في النظام:</h5>
@@ -1698,7 +2411,7 @@ export default function AdminPanel({
         )}
 
         {/* Fallback view for remaining tabs */}
-        {activeTab > 10 && activeTab !== 17 && activeTab !== 20 && activeTab !== 21 && activeTab !== 22 && (
+        {activeTab > 10 && activeTab !== 17 && activeTab !== 20 && activeTab !== 21 && activeTab !== 22 && activeTab !== 23 && (
           <div className="p-8 text-center text-slate-500 border border-dashed border-slate-800 rounded-xl space-y-3">
             <Lock className="w-10 h-10 text-slate-700 mx-auto animate-pulse" />
             <h5 className="font-bold text-white text-xs">ميزة [{ADMIN_TABS[activeTab].name}] مفعلة ونشطة تلقائياً</h5>

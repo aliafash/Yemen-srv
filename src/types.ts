@@ -89,6 +89,10 @@ export interface AppSettings {
   paymentMerchantKuraimi?: string;
   paymentMerchantMFloos?: string;
   paymentMerchantJawwalPay?: string;
+  aboutTelegram?: string;
+  aboutFacebook?: string;
+  aboutWebsite?: string;
+  isQuickRegistrationEnabled?: boolean;
 }
 
 export interface Provider {
@@ -175,6 +179,22 @@ export interface Booking {
   timestamp: number;
   completedAt: number;
   isEmergency?: boolean;
+  paymentMethod?: string;
+}
+
+export interface Review {
+  id: string;
+  providerId: string;
+  providerName: string;
+  userId: string;
+  userName: string;
+  userPhone: string;
+  rating: number;
+  comment: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  status: "pending" | "approved" | "rejected";
+  timestamp: number;
 }
 
 export interface Chat {
