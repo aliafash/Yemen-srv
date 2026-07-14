@@ -48,7 +48,7 @@ export default function ProviderStats({
   const completedCount = completedBookings.length;
   const averageRating = currentProvider?.rating !== undefined ? currentProvider.rating : 5.0;
   const reviewCount = currentProvider?.reviewCount !== undefined ? currentProvider.reviewCount : 0;
-  const basePrice = currentProvider?.price || 5000; // default 5000 YER if not set
+  const basePrice = currentProvider?.price || settings.vipSubscriptionPrice || 3000; // dynamic price per service or subscription price
   
   // Total estimated earnings based on completed bookings
   const totalEarnings = completedCount * basePrice;

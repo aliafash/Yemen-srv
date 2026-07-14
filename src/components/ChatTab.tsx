@@ -37,12 +37,31 @@ export default function ChatTab({
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
+  // Real-time checks
+  const fullUser = db.getUsers().find(u => u.id === currentUser?.id);
+  const fullProvider = db.getProviders().find(p => p.id === currentUser?.id);
+  const isUserBlocked = fullUser?.isChatBlocked || fullProvider?.isChatBlocked;
+  
+  const isGloballyDisabled = settings?.chatStatus === "disabled";
+
   // Auto scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, selectedChatId]);
 
   const activeChat = chats.find(c => c.id === selectedChatId);
+
+  if (isGloballyDisabled) {
+    return (
+      <div className="h-[620px] rounded-2xl bg-slate-900 border border-slate-800 flex flex-col items-center justify-center text-center p-8 text-slate-500" dir="rtl">
+        <MessageSquare className="w-16 h-16 opacity-30 text-rose-500 mb-3" />
+        <h3 className="text-base font-black text-white">خدمة المراسلة الفورية موقوفة 🔒</h3>
+        <p className="text-xs text-slate-450 max-w-sm leading-relaxed mt-1">
+          تم إيقاف وتعطيل ميزة المحادثات الفورية بشكل كامل ومؤقت من قِبل إدارة المنصة لتحديث وإعادة ضبط النظام. يرجى مراجعة الدعم لاحقاً.
+        </p>
+      </div>
+    );
+  }
 
   // Filter messages for active chat
   const chatMessages = messages.filter(m => m.chatId === selectedChatId);
@@ -192,29 +211,37 @@ export default function ChatTab({
             </div>
 
             {/* Message Input Box Form */}
-            <form onSubmit={handleSendMessage} className="p-3.5 bg-slate-900 border-t border-slate-800 flex gap-2">
-              <button
-                type="button"
-                onClick={handleSendVoiceSim}
-                className="w-11 h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 flex items-center justify-center cursor-pointer transition-all shrink-0"
-                title="إرسال رسالة صوتية تجريبية"
-              >
-                <Mic className="w-4 h-4 text-amber-500" />
-              </button>
-              <input
-                type="text"
-                placeholder="اكتب رسالتك وتفاصيل استفسارك هنا..."
-                value={typedMessage}
-                onChange={(e) => setTypedMessage(e.target.value)}
-                className="flex-1 h-11 px-4 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500"
-              />
-              <button
-                type="submit"
-                className="w-11 h-11 rounded-xl bg-amber-500 hover:bg-amber-400 text-black flex items-center justify-center cursor-pointer transition-all shadow-lg shadow-amber-500/10 shrink-0 font-extrabold active:scale-95"
-              >
-                <Send className="w-4 h-4 -rotate-90" />
-              </button>
-            </form>
+            {isUserBlocked ? (
+              <div className="p-4 bg-red-950/20 border-t border-slate-800 text-center">
+                <p className="text-xs font-bold text-rose-400">
+                  ⚠️ عذراً، تم تجميد وإيقاف صلاحية المراسلات الخاصة بحسابك من قبل إدارة المنصة لمخالفة شروط الخدمة.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleSendMessage} className="p-3.5 bg-slate-900 border-t border-slate-800 flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleSendVoiceSim}
+                  className="w-11 h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 flex items-center justify-center cursor-pointer transition-all shrink-0"
+                  title="إرسال رسالة صوتية تجريبية"
+                >
+                  <Mic className="w-4 h-4 text-amber-500" />
+                </button>
+                <input
+                  type="text"
+                  placeholder="اكتب رسالتك وتفاصيل استفسارك هنا..."
+                  value={typedMessage}
+                  onChange={(e) => setTypedMessage(e.target.value)}
+                  className="flex-1 h-11 px-4 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+                <button
+                  type="submit"
+                  className="w-11 h-11 rounded-xl bg-amber-500 hover:bg-amber-400 text-black flex items-center justify-center cursor-pointer transition-all shadow-lg shadow-amber-500/10 shrink-0 font-extrabold active:scale-95"
+                >
+                  <Send className="w-4 h-4 -rotate-90" />
+                </button>
+              </form>
+            )}
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-slate-500 space-y-3">

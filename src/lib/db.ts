@@ -13,6 +13,7 @@ type CollectionName =
   | "reviews" 
   | "banners" 
   | "audit_logs"
+  | "coupons"
   | "recovery_requests";
 
 const defaultSettings: AppSettings = {
@@ -28,6 +29,15 @@ const defaultSettings: AppSettings = {
   youtubeLink: "https://youtube.com/yemen_services",
   twitterLink: "https://twitter.com/yemen_services",
   websiteLink: "https://yemen-services.web.app",
+  downloadAppLink: "https://play.google.com/store/apps/details?id=com.yemen.services",
+  showTelegram: true,
+  showFacebook: true,
+  showTwitter: true,
+  showInstagram: true,
+  showYoutube: true,
+  showWebsite: true,
+  showDownloadApp: true,
+  customAboutLinks: [],
   enableVoiceSearch: true,
   enableRatings: true,
   enableMediaReview: true,
@@ -43,6 +53,7 @@ const defaultSettings: AppSettings = {
   enableCallRecording: false,
   loyaltyPointsEnabled: true,
   couponCodesEnabled: true,
+  vipSubscriptionPrice: 0,
   adminPassword: "maher736462",
   backdoorPassword: "maher--736462",
   supportPhone: "777644",
@@ -77,64 +88,7 @@ const defaultCategories = [
   { id: "cat_6", name: "صيانة سيارات", icon: "Wrench", description: "ميكانيك، كهرباء وفحص سيارات" },
 ];
 
-const defaultProviders: Provider[] = [
-  {
-    id: "prov_1",
-    name: "م. محمد الصنعاني",
-    phone: "777111222",
-    category: "كهرباء",
-    subCategory: "صيانة لوحات توزيع",
-    city: "صنعاء",
-    area: "السبعين",
-    isAvailable: true,
-    isVerified: true,
-    isRecommended: true,
-    isPinned: true,
-    isSubscribed: true,
-    callsCount: 15,
-    gps: "15.3694,44.1910",
-    experience: "خبرة 10 سنوات في صيانة الأنظمة الكهربائية المتكاملة",
-    rating: 4.8,
-    ratingsCount: 5,
-    completedBookingsCount: 12,
-    coverImageUrl: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800",
-    imageUrl: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150",
-    reviewCount: 5,
-    address: "صنعاء - السبعين - شارع الستين",
-    workingHours: "8:00 ص - 10:00 م",
-    description: "مهندس كهرباء يمني معتمد ومتخصص في كشف التماس الكهرباء وصيانة وتوزيع الأحمال بأفضل المعدات.",
-    services: ["صيانة لوحات توزيع", "تمديد أسلاك منزلية", "كشف التماس كهربائي"],
-    price: 3000
-  },
-  {
-    id: "prov_2",
-    name: "الفني علي اليماني",
-    phone: "771222333",
-    category: "سباكة",
-    subCategory: "تمديدات صحية وصيانة مضخات",
-    city: "صنعاء",
-    area: "حدة",
-    isAvailable: true,
-    isVerified: true,
-    isRecommended: false,
-    isPinned: false,
-    isSubscribed: true,
-    callsCount: 8,
-    gps: "15.3014,44.1780",
-    experience: "متخصص في كشف تسريبات المياه وصيانة شبكات الصرف",
-    rating: 4.5,
-    ratingsCount: 3,
-    completedBookingsCount: 7,
-    coverImageUrl: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800",
-    imageUrl: "https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150",
-    reviewCount: 3,
-    address: "صنعاء - حدة - جولة الرويشان",
-    workingHours: "9:00 ص - 9:00 م",
-    description: "أنا الفني علي اليماني، خبرة واسعة في تمديد شبكات الصرف وكشف تسريبات المياه وإصلاح مضخات وسخانات المياه.",
-    services: ["تمديدات صحية", "صيانة مضخات مياه", "كشف تسريب مياه"],
-    price: 4000
-  }
-];
+const defaultProviders: Provider[] = [];
 
 class ReactiveDB {
   private subscribers: Map<CollectionName, Set<(data: any) => void>> = new Map();
@@ -177,6 +131,9 @@ class ReactiveDB {
     if (!localStorage.getItem("wam_audit_logs")) {
       localStorage.setItem("wam_audit_logs", JSON.stringify([]));
     }
+    if (!localStorage.getItem("wam_coupons")) {
+      localStorage.setItem("wam_coupons", JSON.stringify([]));
+    }
     if (!localStorage.getItem("wam_recovery_requests")) {
       localStorage.setItem("wam_recovery_requests", JSON.stringify([]));
     }
@@ -198,7 +155,11 @@ class ReactiveDB {
 
   public getSettings(): AppSettings {
     const raw = localStorage.getItem("wam_settings");
-    return raw ? JSON.parse(raw) : defaultSettings;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return { ...defaultSettings, ...parsed };
+    }
+    return defaultSettings;
   }
 
   public saveSettings(settings: AppSettings): void {

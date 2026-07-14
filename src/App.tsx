@@ -122,7 +122,19 @@ export default function App() {
     const raw = localStorage.getItem("wam_current_user");
     if (raw) {
       try {
-        return JSON.parse(raw);
+        const u = JSON.parse(raw);
+        // Security Gate: NEVER auto-login as admin, director, supervisor, division_supervisor or owner on page load
+        if (u && ["admin", "director", "owner", "supervisor", "division_supervisor"].includes(u.role)) {
+          return {
+            id: "guest_visitor",
+            name: "زائر مجهول",
+            phone: "777000000",
+            area: "صنعاء",
+            role: "visitor",
+            deviceId: "web_device_visitor"
+          };
+        }
+        return u;
       } catch (e) {}
     }
     return {
@@ -615,23 +627,68 @@ export default function App() {
       return;
     }
 
+    // Evaluate Booking Routing Mode
+    let finalProviderId = bookingProvider.id;
+    let finalProviderName = bookingProvider.name;
+    let finalSubCategory = bookingProvider.subCategory;
+    let finalCategory = bookingProvider.category;
+    let routeInfoLog = "";
+
+    if (settings.bookingRoutingMode === "admin_only") {
+      finalProviderId = "admin_platform";
+      finalProviderName = "👑 إدارة التكليفات والفرز المركزي";
+      routeInfoLog = " (توجيه مركزي للإدارة)";
+    } else if (settings.bookingRoutingMode === "closest") {
+      // Find closest provider in the same category
+      const allProvs = db.getProviders();
+      const userArea = (bookingForm.address || currentUser.area || "").trim();
+      const userCity = (currentUser.city || "صنعاء").trim();
+      
+      // Filter by category
+      const matchingCategoryProvs = allProvs.filter(p => p.category === bookingProvider.category && p.isAvailable);
+      
+      // Try to match area first
+      let closestProv = matchingCategoryProvs.find(p => 
+        (p.area && p.area.trim().includes(userArea)) || 
+        (p.area && userArea.includes(p.area.trim()))
+      );
+      
+      // Fallback to match city
+      if (!closestProv && userCity) {
+        closestProv = matchingCategoryProvs.find(p => (p.city || "").trim() === userCity);
+      }
+      
+      // Secondary fallback to just any available provider in same category
+      if (!closestProv) {
+        closestProv = matchingCategoryProvs[0];
+      }
+
+      if (closestProv) {
+        finalProviderId = closestProv.id;
+        finalProviderName = closestProv.name;
+        finalSubCategory = closestProv.subCategory;
+        finalCategory = closestProv.category;
+        routeInfoLog = ` (توجيه تلقائي للفني الأقرب جغرافياً: ${closestProv.name})`;
+      }
+    }
+
     const newBooking: Booking = {
       id: `booking_${Date.now()}`,
       userId: currentUser.id,
       userName: bookingForm.name,
       userPhone: bookingForm.phone,
       userAddress: bookingForm.address || currentUser.area,
-      providerId: bookingProvider.id,
-      providerName: bookingProvider.name,
-      category: bookingProvider.category,
-      subCategory: bookingProvider.subCategory,
-      serviceDetails: bookingForm.details,
+      providerId: finalProviderId,
+      providerName: finalProviderName,
+      category: finalCategory,
+      subCategory: finalSubCategory,
+      serviceDetails: bookingForm.details + routeInfoLog,
       preferredDate: bookingForm.date || new Date().toLocaleDateString("ar-YE"),
       preferredTime: bookingForm.time || "في أقرب وقت",
       notes: bookingForm.notes,
       status: "pending",
       progress: 0,
-      assignedTo: `prov_${bookingProvider.phone}`,
+      assignedTo: finalProviderId === "admin_platform" ? "admin" : `prov_${finalProviderId}`,
       rejectionReason: "",
       timestamp: Date.now(),
       completedAt: 0,
@@ -710,8 +767,30 @@ export default function App() {
 
   // Open internal chat room with provider helper
   const handleOpenChat = (provId: string, provName: string) => {
+    // Check if chat is globally disabled
+    if (settings.chatStatus === "disabled") {
+      alert("⚠️ عذراً، ميزة المحادثات الفورية معطلة وموقوفة مؤقتاً بواسطة الإدارة.");
+      return;
+    }
+
+    // Check if current user is blocked from chat
+    const fullUser = db.getUsers().find(u => u.id === currentUser.id);
+    if (fullUser?.isChatBlocked) {
+      alert("⚠️ حسابك غير مصرح له باستخدام ميزة المحادثات الفورية حالياً من قبل الإدارة الفنية.");
+      return;
+    }
+
+    let targetProvId = provId;
+    let targetProvName = provName;
+
+    // Apply chat routing modes
+    if (settings.chatRoutingMode === "admin_only") {
+      targetProvId = "admin_platform";
+      targetProvName = "👑 إدارة الدعم الفني للمنصة";
+    }
+
     // Check if chat already exists
-    const chatId = `chat_${currentUser.id}_${provId}`;
+    const chatId = `chat_${currentUser.id}_${targetProvId}`;
     const exists = chats.some(c => c.id === chatId);
 
     if (!exists) {
@@ -719,8 +798,8 @@ export default function App() {
         id: chatId,
         userId: currentUser.id,
         userName: currentUser.name,
-        providerId: provId,
-        providerName: provName,
+        providerId: targetProvId,
+        providerName: targetProvName,
         lastMessage: "بدء المحادثة الفورية",
         lastMessageTime: Date.now(),
         unreadCount: 0,

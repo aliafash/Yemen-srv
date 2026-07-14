@@ -118,7 +118,12 @@ export default function PaymentTab({ settings, currentUser }: PaymentTabProps) {
             <span className="font-bold text-white block">باقة الـ VIP الفائقة للتميز</span>
             <span className="text-[10px] text-slate-500">ميزات حصرية، عملاء مخصصين، تتبع للمسار وحفظ الخريطة</span>
           </div>
-          <span className="text-amber-500 font-extrabold text-sm">5,000 ريال / شهرياً</span>
+          <span className="text-amber-500 font-extrabold text-sm">
+            {settings.vipSubscriptionPrice && settings.vipSubscriptionPrice > 0 
+              ? `${settings.vipSubscriptionPrice.toLocaleString("ar-YE")} ريال / شهرياً` 
+              : "اشتراك مجاني بالكامل حالياً"
+            }
+          </span>
         </div>
       </div>
     </div>

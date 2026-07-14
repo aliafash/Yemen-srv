@@ -54,7 +54,7 @@ export default function SmartAssistant({
       } else if (query.includes("سباك") || query.includes("مياه")) {
         replyText = "بالتأكيد! نوفر لك أفضل السباكين المعتمدين. يمكنك الاتصال بالفني 'علي اليماني' المتواجد في حدة وهو متخصص بأعمال السباكة وتمديد الشبكات ومصارف المياه والتحقق اليدوي منها.";
       } else if (query.includes("سعر") || query.includes("باقة") || query.includes("اشتراك")) {
-        replyText = "توفر منصتنا باقات مجانية ومميزة للفنيين. باقة VIP المخصصة لمزودي الخدمة تبلغ 5,000 ريال يمني فقط شهرياً، وتجلب لك الأولوية في الظهور للعملاء وشارات ممتازة مع توثيق الحساب.";
+        replyText = `توفر منصتنا باقات مميزة للفنيين. باقة VIP المخصصة لمزودي الخدمة تبلغ ${settings.vipSubscriptionPrice && settings.vipSubscriptionPrice > 0 ? `${settings.vipSubscriptionPrice.toLocaleString("ar-YE")} ريال يمني شهرياً` : "اشتراك مجاني حالياً"}، وتجلب لك الأولوية في الظهور للعملاء وشارات ممتازة مع توثيق الحساب.`;
       }
 
       setMessages(prev => [...prev, {

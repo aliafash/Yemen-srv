@@ -11,6 +11,15 @@ export interface AppSettings {
   youtubeLink?: string;
   twitterLink?: string;
   websiteLink?: string;
+  downloadAppLink?: string;
+  showTelegram?: boolean;
+  showFacebook?: boolean;
+  showTwitter?: boolean;
+  showInstagram?: boolean;
+  showYoutube?: boolean;
+  showWebsite?: boolean;
+  showDownloadApp?: boolean;
+  customAboutLinks?: { id: string; label: string; url: string; visible: boolean }[];
   enableVoiceSearch?: boolean;
   enableRatings?: boolean;
   enableMediaReview?: boolean;
@@ -26,6 +35,7 @@ export interface AppSettings {
   enableCallRecording?: boolean;
   loyaltyPointsEnabled?: boolean;
   couponCodesEnabled?: boolean;
+  vipSubscriptionPrice?: number;
 
   // Additional fields from App.tsx
   adminPassword?: string;
@@ -52,6 +62,9 @@ export interface AppSettings {
   footerText?: string;
   bgColorHex?: string;
   isLoyaltyEnabled?: boolean;
+  chatStatus?: "enabled" | "disabled" | "admin_only";
+  chatRoutingMode?: "both" | "admin_only" | "provider_only";
+  bookingRoutingMode?: "specified" | "both" | "admin_only" | "closest";
 }
 
 export interface Provider {
@@ -77,6 +90,7 @@ export interface Provider {
   rating?: number;
   completedBookingsCount?: number;
   ratingsCount?: number;
+  isChatBlocked?: boolean;
 
   // Additional fields from App.tsx
   coverImageUrl?: string;
@@ -165,12 +179,14 @@ export interface User {
   id: string;
   name: string;
   phone: string;
+  city?: string;
   area: string;
   role: string;
   deviceId: string;
   favorites?: string[];
   loyaltyPoints?: number;
   isBanned?: boolean;
+  isChatBlocked?: boolean;
 }
 
 export interface Review {
