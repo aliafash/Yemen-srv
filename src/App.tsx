@@ -997,9 +997,20 @@ export default function App() {
             <div className="p-5 pt-8 overflow-y-auto grow space-y-4">
               <div className="flex items-center justify-between flex-row-reverse">
                 <div>
-                  <h3 className="font-extrabold text-white text-base flex items-center gap-1 flex-row-reverse">
-                    {selectedProvider.name}
-                    {selectedProvider.isVerified && <span className="text-emerald-400">✓</span>}
+                  <h3 className="font-extrabold text-white text-base flex items-center gap-1.5 flex-row-reverse flex-wrap">
+                    <span>{selectedProvider.name}</span>
+                    {selectedProvider.isVerified && <span className="text-emerald-400" title="موثق ومضمون">✓</span>}
+                    {selectedProvider.isAvailable ? (
+                      <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 text-[9px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 shrink-0 animate-pulse">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                        متاح الآن
+                      </span>
+                    ) : (
+                      <span className="bg-rose-500/15 text-rose-400 border border-rose-500/20 text-[9px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                        مشغول
+                      </span>
+                    )}
                   </h3>
                   <p className="text-xs text-amber-500 font-bold">{selectedProvider.subCategory} | {selectedProvider.category}</p>
                 </div>

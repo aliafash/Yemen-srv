@@ -1,5 +1,6 @@
 import React from "react";
 import { AppSettings, Booking, Provider, User } from "../types";
+import { db } from "../lib/db";
 import { 
   BarChart3, 
   CheckCircle2, 
@@ -52,6 +53,18 @@ export default function ProviderStats({
   // Total estimated earnings based on completed bookings
   const totalEarnings = completedCount * basePrice;
 
+  const handleToggleAvailability = async () => {
+    if (!currentProvider) return;
+    const allProviders = db.getProviders();
+    const updated = allProviders.map(p => {
+      if (p.id === currentProvider.id) {
+        return { ...p, isAvailable: !p.isAvailable };
+      }
+      return p;
+    });
+    await db.saveProviders(updated);
+  };
+
   // If the Admin has disabled provider stats, show an elegant notice
   if (settings.showProviderStats === false) {
     return (
@@ -83,6 +96,41 @@ export default function ProviderStats({
             نحن نوفر لك تحليلاً بيانياً فورياً ومزامناً مع خوادم المنصة لتتبع أدائك، حجوزاتك، وأرباحك المالية التقديرية بناءً على المعاملات المسجلة.
           </p>
         </div>
+      </div>
+
+      {/* 🟢/🔴 Active Availability Toggle Widget */}
+      <div className="bg-slate-900 border border-slate-800 p-4.5 rounded-2xl flex flex-col sm:flex-row-reverse items-center justify-between gap-4 shadow-lg">
+        <div className="flex items-center gap-3 flex-row-reverse text-right">
+          <div className={`p-3 rounded-2xl shrink-0 flex items-center justify-center ${currentProvider?.isAvailable ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20"}`}>
+            {currentProvider?.isAvailable ? (
+              <span className="relative flex h-3.5 w-3.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
+              </span>
+            ) : (
+              <span className="inline-flex rounded-full h-3.5 w-3.5 bg-rose-500"></span>
+            )}
+          </div>
+          <div>
+            <h3 className="font-extrabold text-white text-xs sm:text-sm">حالة الإتاحة والظهور للعملاء</h3>
+            <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+              {currentProvider?.isAvailable 
+                ? "أنت تظهر الآن للعملاء بوضع (متاح للعمل). يمكنهم الاتصال بك وحجز خدماتك مباشرة عبر الموقع."
+                : "أنت تظهر الآن بوضع (مشغول حالياً). لن يتمكن العملاء من الاتصال بك أو إرسال طلبات حجز جديدة حتى تفعّل الإتاحة."}
+            </p>
+          </div>
+        </div>
+        
+        <button
+          onClick={handleToggleAvailability}
+          className={`w-full sm:w-auto px-5 py-2.5 rounded-xl font-extrabold text-xs transition-all active:scale-[0.97] flex items-center justify-center gap-2 cursor-pointer shadow-md select-none ${
+            currentProvider?.isAvailable
+              ? "bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 hover:border-rose-500/40 shadow-rose-950/10"
+              : "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/40 shadow-emerald-950/10"
+          }`}
+        >
+          <span>{currentProvider?.isAvailable ? "🔴 تحويل حالتي إلى (مشغول)" : "🟢 تحويل حالتي إلى (متاح للعمل)"}</span>
+        </button>
       </div>
 
       {/* 👤 Professional Profile Card (الملف الشخصي للفني) */}
@@ -159,13 +207,17 @@ export default function ProviderStats({
             <span>{currentProvider?.isSubscribed ? "🏆 عضوية ذهبية مميزة (VIP)" : "عضوية عادية"}</span>
           </div>
 
-          <div className={`px-3 py-1.5 rounded-lg border font-bold flex items-center gap-1.5 ${
-            currentProvider?.isAvailable 
-              ? "bg-emerald-600/10 border-emerald-500/30 text-emerald-400" 
-              : "bg-rose-500/10 border-rose-500/20 text-rose-400"
-          }`}>
-            <span>{currentProvider?.isAvailable ? "● متاح حالياً لاستقبال الطلبات" : "○ مشغول حالياً"}</span>
-          </div>
+          <button
+            onClick={handleToggleAvailability}
+            className={`px-3 py-1.5 rounded-lg border font-bold flex items-center gap-1.5 transition-all active:scale-[0.96] hover:brightness-110 cursor-pointer ${
+              currentProvider?.isAvailable 
+                ? "bg-emerald-600/25 border-emerald-500/40 text-emerald-400" 
+                : "bg-rose-500/25 border-rose-500/35 text-rose-400"
+            }`}
+            title="اضغط لتعديل حالة الإتاحة والظهور فوراً"
+          >
+            <span>{currentProvider?.isAvailable ? "● متاح حالياً للعمل (اضغط للتغيير)" : "○ مشغول حالياً (اضغط للتغيير)"}</span>
+          </button>
         </div>
       </div>
 

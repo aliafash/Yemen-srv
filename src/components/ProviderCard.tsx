@@ -138,6 +138,17 @@ export default function ProviderCard({
               {provider.isVerified && (
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400/10 shrink-0" title="موثق ومضمون" />
               )}
+              {provider.isAvailable ? (
+                <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 text-[8px] px-1.5 py-0.2 rounded font-extrabold flex items-center gap-0.5 shrink-0">
+                  <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse"></span>
+                  متاح
+                </span>
+              ) : (
+                <span className="bg-rose-500/15 text-rose-400 border border-rose-500/20 text-[8px] px-1.5 py-0.2 rounded font-extrabold flex items-center gap-0.5 shrink-0">
+                  <span className="w-1 h-1 rounded-full bg-rose-500"></span>
+                  مشغول
+                </span>
+              )}
               {provider.isRecommended && (
                 <span className="bg-rose-500/15 text-rose-400 border border-rose-500/20 text-[8px] px-1 py-0.1 rounded shrink-0">موصى به 🔥</span>
               )}
