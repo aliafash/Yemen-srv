@@ -136,7 +136,7 @@ export default function ProviderCard({
                 {provider.name}
               </h3>
               {provider.isVerified && (
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400/10 shrink-0" title="موثق ومضمون" />
+                <CheckCircle className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400/10 shrink-0" />
               )}
               {provider.isAvailable ? (
                 <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 text-[8px] px-1.5 py-0.2 rounded font-extrabold flex items-center gap-0.5 shrink-0">
@@ -164,7 +164,7 @@ export default function ProviderCard({
               <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
                 <div className="flex items-center gap-0.5 text-amber-400 font-extrabold">
                   <Star className="w-2.5 h-2.5 fill-amber-400" />
-                  <span>{provider.rating.toFixed(1)}</span>
+                  <span>{(provider.rating || 4.5).toFixed(1)}</span>
                 </div>
                 <div className="flex items-center gap-0.5 flex-row-reverse">
                   <MapPin className="w-3 h-3 text-slate-500" />
@@ -207,13 +207,13 @@ export default function ProviderCard({
             <div className="flex items-center justify-between text-xs pt-1">
               <div className="flex items-center gap-1 text-slate-400">
                 <Clock className="w-3.5 h-3.5 text-slate-500" />
-                <span>{provider.workingHours || "غير محدد"}</span>
+                <span>{provider.workingHours || "غير مححدد"}</span>
               </div>
               <div className="flex items-center gap-2 flex-row-reverse">
                 <div className="flex items-center gap-0.5 text-amber-400 font-bold bg-amber-400/5 px-2 py-0.5 rounded border border-amber-400/10">
                   <Star className="w-3 h-3 fill-amber-400" />
-                  <span>{provider.rating.toFixed(1)}</span>
-                  <span className="text-slate-500 font-normal text-[10px]">({provider.reviewCount})</span>
+                  <span>{(provider.rating || 4.5).toFixed(1)}</span>
+                  <span className="text-slate-500 font-normal text-[10px]">({provider.reviewCount || 0})</span>
                 </div>
               </div>
             </div>

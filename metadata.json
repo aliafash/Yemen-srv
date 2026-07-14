@@ -1,0 +1,6 @@
+{
+  "name": "اليمن للخدمات الفنية",
+  "description": "منصة يمنية خدمية شاملة لربط الفنيين المهرة بالعملاء وتسهيل صيانة المنازل بالخرائط والتواصل المباشر والتقييم الحقيقي",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

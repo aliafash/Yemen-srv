@@ -322,7 +322,7 @@ export default function App() {
     const secureCode = `WAM_${randCode}`;
 
     // Store the recovery request in local collection
-    const currentRequests = db.getCollection("recovery_requests") || [];
+    const currentRequests = db.getCollection<any>("recovery_requests") || [];
     const newRequest = {
       id: `rec_${Date.now()}`,
       phone: phoneClean,
@@ -365,7 +365,7 @@ export default function App() {
     const newPassEncoded = btoa(newRecoveryPassword.trim());
 
     // Fetch recovery requests
-    const currentRequests = db.getCollection("recovery_requests") || [];
+    const currentRequests = db.getCollection<any>("recovery_requests") || [];
     const matchingReqIndex = currentRequests.findIndex((r: any) => r.phone === phoneClean && r.code === codeClean && r.status === "pending");
 
     if (matchingReqIndex === -1) {
@@ -1016,8 +1016,8 @@ export default function App() {
                 </div>
                 <div className="flex items-center gap-1 font-bold text-amber-400 text-xs bg-amber-400/5 px-2 py-1 rounded border border-amber-400/10 flex-row-reverse">
                   <Star className="w-3.5 h-3.5 fill-amber-400" />
-                  <span>{selectedProvider.rating.toFixed(1)}</span>
-                  <span className="text-slate-500 font-normal">({selectedProvider.reviewCount})</span>
+                  <span>{(selectedProvider.rating || 4.5).toFixed(1)}</span>
+                  <span className="text-slate-500 font-normal">({selectedProvider.reviewCount || 0})</span>
                 </div>
               </div>
 

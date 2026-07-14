@@ -41,13 +41,13 @@ export default function ProviderStats({
 
   // Completed bookings
   const completedBookings = myBookings.filter(b => b.status === "completed");
-  const pendingBookings = myBookings.filter(b => b.status === "pending" || b.status === "accepted");
-  const activeBookings = myBookings.filter(b => b.status === "in_progress");
+  const pendingBookings = myBookings.filter(b => b.status === "pending");
+  const activeBookings = myBookings.filter(b => b.status === "accepted");
 
   // Statistics calculation
   const completedCount = completedBookings.length;
-  const averageRating = currentProvider ? currentProvider.rating : 5.0;
-  const reviewCount = currentProvider ? currentProvider.reviewCount : 0;
+  const averageRating = currentProvider?.rating !== undefined ? currentProvider.rating : 5.0;
+  const reviewCount = currentProvider?.reviewCount !== undefined ? currentProvider.reviewCount : 0;
   const basePrice = currentProvider?.price || 5000; // default 5000 YER if not set
   
   // Total estimated earnings based on completed bookings
