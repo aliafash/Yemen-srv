@@ -137,6 +137,20 @@ class ReactiveDB {
     if (!localStorage.getItem("wam_recovery_requests")) {
       localStorage.setItem("wam_recovery_requests", JSON.stringify([]));
     }
+
+    // Live storage synchronization across tabs/windows/iframes
+    if (typeof window !== "undefined") {
+      window.addEventListener("storage", (e) => {
+        if (e.key && e.key.startsWith("wam_")) {
+          const collection = e.key.substring(4) as CollectionName;
+          if (collection === "settings") {
+            this.notify("settings", this.getSettings());
+          } else {
+            this.notify(collection, this.getCollection(collection));
+          }
+        }
+      });
+    }
   }
 
   private getKey(collection: CollectionName): string {
