@@ -1,4 +1,24 @@
 import { AppSettings, Provider, PendingProvider, Booking, Chat, Message, Notification, User, Review, Banner } from "../types";
+import { initializeApp } from "firebase/app";
+import { 
+  getFirestore, 
+  collection as firestoreCollection, 
+  doc as firestoreDoc, 
+  setDoc, 
+  onSnapshot, 
+  deleteDoc
+} from "firebase/firestore";
+import firebaseConfig from "../../firebase-applet-config.json";
+
+let app;
+let firestoreDb: any = null;
+
+try {
+  app = initializeApp(firebaseConfig);
+  firestoreDb = getFirestore(app);
+} catch (error) {
+  console.warn("Firebase failed to initialize. Falling back to local storage.", error);
+}
 
 type CollectionName = 
   | "settings" 
@@ -151,6 +171,71 @@ class ReactiveDB {
         }
       });
     }
+
+    // Real-time synchronization with Firestore
+    if (firestoreDb) {
+      // 1. Sync settings
+      const settingsDocRef = firestoreDoc(firestoreDb, "system", "settings");
+      onSnapshot(settingsDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const remoteSettings = docSnap.data() as AppSettings;
+          const currentRaw = localStorage.getItem("wam_settings");
+          const remoteRaw = JSON.stringify(remoteSettings);
+          if (currentRaw !== remoteRaw) {
+            localStorage.setItem("wam_settings", remoteRaw);
+            this.notify("settings", remoteSettings);
+          }
+        } else {
+          // If Firestore is empty, seed it with current local settings
+          const localSettings = this.getSettings();
+          setDoc(settingsDocRef, localSettings).catch(err => console.error("Error seeding settings to Firestore:", err));
+        }
+      });
+
+      // 2. Sync array collections
+      const arrayCollections: CollectionName[] = [
+        "categories",
+        "providers",
+        "pending_providers",
+        "bookings",
+        "chats",
+        "messages",
+        "notifications",
+        "users",
+        "reviews",
+        "banners",
+        "audit_logs",
+        "coupons",
+        "recovery_requests"
+      ];
+
+      arrayCollections.forEach(collectionName => {
+        const colRef = firestoreCollection(firestoreDb, collectionName);
+        onSnapshot(colRef, (snapshot) => {
+          const remoteData: any[] = [];
+          snapshot.forEach(docSnap => {
+            remoteData.push({ id: docSnap.id, ...docSnap.data() });
+          });
+
+          // Seed default categories if Firestore categories are empty
+          if (remoteData.length === 0 && collectionName === "categories") {
+            defaultCategories.forEach(cat => {
+              setDoc(firestoreDoc(firestoreDb, "categories", cat.id), cat);
+            });
+            return;
+          }
+
+          const currentRaw = localStorage.getItem(this.getKey(collectionName));
+          const remoteRaw = JSON.stringify(remoteData);
+          if (currentRaw !== remoteRaw) {
+            localStorage.setItem(this.getKey(collectionName), remoteRaw);
+            this.notify(collectionName, remoteData);
+          }
+        }, (error) => {
+          console.error(`Error in Firestore listener for ${collectionName}:`, error);
+        });
+      });
+    }
   }
 
   private getKey(collection: CollectionName): string {
@@ -162,9 +247,39 @@ class ReactiveDB {
     return raw ? JSON.parse(raw) : [];
   }
 
-  public saveCollection<T>(collection: CollectionName, data: T[]): void {
-    localStorage.setItem(this.getKey(collection), JSON.stringify(data));
-    this.notify(collection, data);
+  public saveCollection<T>(collectionName: CollectionName, data: T[]): void {
+    const currentRaw = localStorage.getItem(this.getKey(collectionName));
+    const newRaw = JSON.stringify(data);
+    
+    localStorage.setItem(this.getKey(collectionName), newRaw);
+    this.notify(collectionName, data);
+
+    if (firestoreDb) {
+      let oldData: any[] = [];
+      try {
+        oldData = currentRaw ? JSON.parse(currentRaw) : [];
+      } catch (e) {
+        oldData = [];
+      }
+      
+      const oldIds = oldData.map((item: any) => item.id).filter(Boolean);
+      const newIds = (data as any[]).map((item: any) => item.id).filter(Boolean);
+      const deletedIds = oldIds.filter(id => !newIds.includes(id));
+
+      // Save new/updated items
+      (data as any[]).forEach((item: any) => {
+        if (item && item.id) {
+          const docRef = firestoreDoc(firestoreDb, collectionName, item.id);
+          setDoc(docRef, item).catch(err => console.error(`Error syncing doc ${item.id} to Firestore collection ${collectionName}:`, err));
+        }
+      });
+
+      // Delete removed items
+      deletedIds.forEach(id => {
+        const docRef = firestoreDoc(firestoreDb, collectionName, id);
+        deleteDoc(docRef).catch(err => console.error(`Error deleting doc ${id} from Firestore collection ${collectionName}:`, err));
+      });
+    }
   }
 
   public getSettings(): AppSettings {
@@ -179,6 +294,11 @@ class ReactiveDB {
   public saveSettings(settings: AppSettings): void {
     localStorage.setItem("wam_settings", JSON.stringify(settings));
     this.notify("settings", settings);
+
+    if (firestoreDb) {
+      const docRef = firestoreDoc(firestoreDb, "system", "settings");
+      setDoc(docRef, settings).catch(err => console.error("Error syncing settings to Firestore:", err));
+    }
   }
 
   public getCategories(): any[] {
